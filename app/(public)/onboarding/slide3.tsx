@@ -15,11 +15,16 @@ export default function Slide3() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-900">
-      <ScrollView
-        className="flex-1 bg-gray-900"
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView className="flex-1 relative">
+      {/* FULL-SCREEN BACKGROUND IMAGE */}
+      <Image
+        source={require("@/assets/images/slide3.jpeg")}
+        className="absolute inset-0 w-full h-full"
+        contentFit="cover"
+      />
+      <View className="absolute inset-0 bg-gradient-to-b from-transparent via-gray-900/40 to-gray-900" />
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* HEADER */}
         <View className="flex-row items-center justify-between px-6 pt-4 z-10">
           <View className="flex-row items-center gap-2">
@@ -31,20 +36,8 @@ export default function Slide3() {
           </TouchableOpacity>
         </View>
 
-        {/* BACKGROUND IMAGE */}
-        <View className="mt-4 h-80 overflow-hidden rounded-2xl mx-6 relative">
-          <Image
-            source={require("@/assets/images/Home.jpeg")}
-            className="w-full h-full"
-            contentFit="cover"
-          />
-          <View className="absolute inset-0 bg-gradient-to-t from-gray-900 via-transparent to-transparent" />
-
-          {/* LOCK ICON - TOP RIGHT */}
-          <View className="absolute top-6 right-6 w-16 h-16 rounded-3xl bg-gray-600/40 items-center justify-center border border-gray-400/20">
-            <Text className="text-3xl">🔒</Text>
-          </View>
-        </View>
+        {/* SPACER FOR IMAGE */}
+        <View className="h-30" />
 
         {/* FEATURE CARDS CONTAINER */}
         <View className="mx-6 mt-8 space-y-4">
@@ -111,8 +104,6 @@ export default function Slide3() {
             Get Started →
           </Text>
         </TouchableOpacity>
-
-        <View className="h-8" />
       </ScrollView>
     </SafeAreaView>
   );

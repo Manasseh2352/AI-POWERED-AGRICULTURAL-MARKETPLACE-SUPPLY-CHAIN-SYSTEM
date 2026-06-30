@@ -1,7 +1,7 @@
 import { useLoadingStore } from "@/store/loadingStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View } from "react-native";
 
 export default function OTP() {
@@ -11,6 +11,7 @@ export default function OTP() {
     rawRole === "farmer" || rawRole === "buyer" ? rawRole : undefined;
   const [code, setCode] = useState(["", "", "", ""]);
   const [seconds, setSeconds] = useState(57);
+  const [verifying, setVerifying] = useState(false);
   const setLoading = useLoadingStore((s) => s.setLoading);
   const inputs = useRef<TextInput[]>([]);
 
@@ -21,6 +22,32 @@ export default function OTP() {
     }, 1000);
     return () => clearInterval(timer);
   }, [seconds]);
+
+  const verify = useCallback(() => {
+    if (verifying) return;
+    setVerifying(true);
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      setVerifying(false);
+      if (role === "farmer") {
+        router.replace("/(farmer)/dashboard");
+      } else {
+        router.replace("/(buyer)/home");
+      }
+    }, 800);
+  }, [verifying, role, router, setLoading]);
+
+  useEffect(() => {
+    if (verifying) return;
+    if (code.every((digit) => digit !== "")) {
+      verify();
+    }
+  }, [code, verifying, verify]);
+
+  useEffect(() => {
+    inputs.current[0]?.focus();
+  }, []);
 
   const updateCode = (index: number, value: string) => {
     if (!/^[0-9]?$/.test(value)) return;
@@ -34,20 +61,14 @@ export default function OTP() {
     }
   };
 
-  const resendCode = () => {
-    setSeconds(57);
+  const handleKeyPress = (index: number, key: string) => {
+    if (key === "Backspace" && code[index] === "" && index > 0) {
+      inputs.current[index - 1]?.focus();
+    }
   };
 
-  const verify = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      if (role === "farmer") {
-        router.replace("/(farmer)/dashboard");
-      } else {
-        router.replace("/(buyer)/home");
-      }
-    }, 800);
+  const resendCode = () => {
+    setSeconds(57);
   };
 
   return (
@@ -75,6 +96,9 @@ export default function OTP() {
               }}
               value={value}
               onChangeText={(text) => updateCode(index, text)}
+              onKeyPress={({ nativeEvent }) =>
+                handleKeyPress(index, nativeEvent.key)
+              }
               keyboardType="number-pad"
               maxLength={1}
               className="h-16 w-16 rounded-3xl border border-gray-200 bg-emerald-50 text-center text-2xl font-bold text-gray-900"
@@ -99,10 +123,15 @@ export default function OTP() {
 
         <TouchableOpacity
           onPress={verify}
-          className="mt-10 rounded-3xl bg-emerald-700 py-4 shadow-lg shadow-emerald-700/20"
+          disabled={verifying || code.some((digit) => digit === "")}
+          className={`mt-10 rounded-3xl py-4 shadow-lg shadow-emerald-700/20 ${
+            verifying || code.some((digit) => digit === "")
+              ? "bg-emerald-300"
+              : "bg-emerald-700"
+          }`}
         >
           <Text className="text-center text-base font-bold text-white">
-            Verify & Continue →
+            {verifying ? "Verifying..." : "Verify & Continue →"}
           </Text>
         </TouchableOpacity>
 

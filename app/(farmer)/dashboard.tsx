@@ -100,11 +100,16 @@ export default function Dashboard() {
               />
             </TouchableOpacity>
             <View className="w-10 h-10 rounded-full bg-gray-300 items-center justify-center">
-              <MaterialCommunityIcons
+              <TouchableOpacity
+              onPress={() => router.push("/(farmer)/profile")}
+              >
+                <MaterialCommunityIcons
                 name="account-circle-outline"
                 size={24}
                 color="#374151"
               />
+              </TouchableOpacity>
+              
             </View>
           </View>
         </View>

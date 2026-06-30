@@ -1,5 +1,6 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
+import { useRouter } from "expo-router";
 import { useState } from "react";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -56,6 +57,7 @@ const tabs = [
 ];
 
 export default function OrderHistory() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("all");
 
   const filteredOrders = orderCards.filter((order) => {
@@ -70,13 +72,13 @@ export default function OrderHistory() {
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-5 pb-8">
           <View className="flex-row items-center justify-between pt-4">
-            <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
-              <MaterialCommunityIcons name="menu" size={20} color="#14532d" />
-            </TouchableOpacity>
             <Text className="text-2xl font-bold text-emerald-900">
               HarvestAI
             </Text>
-            <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
+            <TouchableOpacity
+              onPress={() => router.push("/(buyer)/notifications")}
+              className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
+            >
               <MaterialCommunityIcons
                 name="bell-outline"
                 size={20}

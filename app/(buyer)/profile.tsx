@@ -1,3 +1,4 @@
+import { useRoleStore } from "@/store/roleStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
@@ -13,6 +14,12 @@ const SETTINGS = [
 
 export default function Profile() {
   const router = useRouter();
+  const setRole = useRoleStore((s) => s.setRole);
+
+  const switchToFarmer = () => {
+    setRole("farmer");
+    router.replace("/(farmer)/dashboard");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#eef6ee]">
@@ -31,9 +38,10 @@ export default function Profile() {
             </Text>
           </View>
 
-          <TouchableOpacity 
-          onPress={() => router.push("/(buyer)/notifications")}
-          className="rounded-full bg-white p-3 shadow-sm shadow-black/5">
+          <TouchableOpacity
+            onPress={() => router.push("/(buyer)/notifications")}
+            className="rounded-full bg-white p-3 shadow-sm shadow-black/5"
+          >
             <MaterialCommunityIcons
               name="bell-outline"
               size={20}
@@ -136,8 +144,17 @@ export default function Profile() {
         </View>
 
         <TouchableOpacity
+          onPress={switchToFarmer}
+          className="mt-6 rounded-[28px] bg-emerald-700 px-5 py-4 shadow-sm shadow-emerald-700/10"
+        >
+          <Text className="text-sm font-semibold text-white text-center">
+            Switch to Farmer Account
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
           onPress={() => router.replace("/(public)/auth/login")}
-          className="mt-6 flex-row items-center justify-center gap-2 rounded-[28px] border border-red-200 bg-white px-5 py-4 shadow-sm shadow-black/5"
+          className="mt-4 flex-row items-center justify-center gap-2 rounded-[28px] border border-red-200 bg-white px-5 py-4 shadow-sm shadow-black/5"
         >
           <MaterialCommunityIcons name="logout" size={20} color="#b91c1c" />
           <Text className="text-sm font-semibold text-red-600">Logout</Text>
