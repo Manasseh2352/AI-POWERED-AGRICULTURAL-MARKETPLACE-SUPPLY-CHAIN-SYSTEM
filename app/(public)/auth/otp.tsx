@@ -2,18 +2,30 @@ import { useLoadingStore } from "@/store/loadingStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View } from "react-native";
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from "react-native";
+import { AuthService } from "@/services/auth.service";
+import { useAuthStore } from "@/store/authStore";
+import { DEV_BYPASS_OTP } from "@/constants/api";
 
 export default function OTP() {
   const router = useRouter();
   const { role: rawRole } = useLocalSearchParams();
-  const role =
-    rawRole === "farmer" || rawRole === "buyer" ? rawRole : undefined;
-  const [code, setCode] = useState(["", "", "", ""]);
+  const role = rawRole === "farmer" || rawRole === "buyer" ? rawRole : undefined;
+  
+  const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [seconds, setSeconds] = useState(57);
   const [verifying, setVerifying] = useState(false);
   const setLoading = useLoadingStore((s) => s.setLoading);
   const inputs = useRef<TextInput[]>([]);
+  
+  const pendingEmail = useAuthStore((s) => s.pendingEmail);
+
+  useEffect(() => {
+    if (!pendingEmail) {
+      Alert.alert("Error", "No pending registration found.");
+      router.replace("/(public)/auth/register");
+    }
+  }, [pendingEmail, router]);
 
   useEffect(() => {
     if (seconds === 0) return;
@@ -23,20 +35,43 @@ export default function OTP() {
     return () => clearInterval(timer);
   }, [seconds]);
 
-  const verify = useCallback(() => {
+  const verify = useCallback(async () => {
     if (verifying) return;
+    const otpValue = code.join("");
+    
+    // In strict mode we expect 6 digit OTP. 
+    // The previous mockup used 4, but backend requires 6 digits.
+    if (otpValue.length !== 6 && !DEV_BYPASS_OTP) {
+        Alert.alert("Error", "Please enter a 6-digit OTP.");
+        return;
+    }
+
     setVerifying(true);
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      setVerifying(false);
-      if (role === "farmer") {
-        router.replace("/(farmer)/dashboard");
+    
+    try {
+      if (DEV_BYPASS_OTP) {
+         console.warn("DEV_BYPASS_OTP is enabled. Bypassing OTP validation via fake setTimeout...");
+         await new Promise(r => setTimeout(r, 800));
       } else {
-        router.replace("/(buyer)/home");
+         await AuthService.verifyOTP(pendingEmail!, otpValue);
       }
-    }, 800);
-  }, [verifying, role, router, setLoading]);
+
+      if (role === "farmer") {
+        router.replace("/(public)/auth/login"); // OTP verified, now they can login
+      } else {
+        router.replace("/(public)/auth/login"); // OTP verified, now they can login
+      }
+      
+      Alert.alert("Success", "Account verified successfully. Please log in.");
+      
+    } catch (err: any) {
+       Alert.alert("Verification Failed", err.message);
+    } finally {
+       setLoading(false);
+       setVerifying(false);
+    }
+  }, [verifying, role, router, setLoading, code, pendingEmail]);
 
   useEffect(() => {
     if (verifying) return;
@@ -56,7 +91,7 @@ export default function OTP() {
     next[index] = value;
     setCode(next);
 
-    if (value && index < 3) {
+    if (value && index < 5) {
       inputs.current[index + 1]?.focus();
     }
   };
@@ -69,6 +104,11 @@ export default function OTP() {
 
   const resendCode = () => {
     setSeconds(57);
+    Alert.alert("Info", "In a real app, an API call would be made here to resend the code.");
+  };
+
+  const fillFakeOTP = () => {
+     setCode(["1", "2", "3", "4", "5", "6"]);
   };
 
   return (
@@ -84,7 +124,7 @@ export default function OTP() {
           Verification Code
         </Text>
         <Text className="text-center text-sm text-gray-500 mt-2">
-          Code sent to +234 812 •••• 90
+          Code sent to {pendingEmail}
         </Text>
 
         <View className="mt-10 flex-row justify-between">
@@ -101,7 +141,7 @@ export default function OTP() {
               }
               keyboardType="number-pad"
               maxLength={1}
-              className="h-16 w-16 rounded-3xl border border-gray-200 bg-emerald-50 text-center text-2xl font-bold text-gray-900"
+              className="h-12 w-12 rounded-2xl border border-gray-200 bg-emerald-50 text-center text-xl font-bold text-gray-900"
             />
           ))}
         </View>
@@ -130,10 +170,20 @@ export default function OTP() {
               : "bg-emerald-700"
           }`}
         >
-          <Text className="text-center text-base font-bold text-white">
-            {verifying ? "Verifying..." : "Verify & Continue →"}
-          </Text>
+          {verifying ? (
+            <ActivityIndicator color="white" />
+          ) : (
+             <Text className="text-center text-base font-bold text-white">
+              Verify & Continue →
+            </Text>
+          )}
         </TouchableOpacity>
+
+        {DEV_BYPASS_OTP && (
+           <TouchableOpacity onPress={fillFakeOTP} className="mt-4 py-2">
+             <Text className="text-center text-red-500 font-bold">DEV BYPASS: Fill Code</Text>
+           </TouchableOpacity>
+        )}
 
         <View className="mt-6 items-center">
           <Text className="text-gray-400 text-sm">
