@@ -3,11 +3,9 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import { AuthService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/authStore";
-import { saveToken } from "@/lib/storage";
 
 export default function Login() {
   const router = useRouter();
-  const setAuth = useAuthStore((s) => s.setAuth);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -20,19 +18,32 @@ export default function Login() {
 
     setLoading(true);
     try {
-      const response = await AuthService.login({ email, password });
-      
-      const { user, token } = response;
-      await saveToken(token);
-      setAuth(user, token);
+      // AuthService.login persists the normalized user + token to the store
+      // (and secure storage) internally, so we only route here.
+      const response = await AuthService.login(email.trim(), password);
 
-      if (user.role === 'farmer') {
+      // Hard-gate OTP challenge: a PENDING account can't get a token yet. Stash
+      // the password in memory so the OTP screen can auto-retry login after
+      // verification, then route to the OTP screen (purpose=LOGIN).
+      if (response?.otpRequired) {
+        useAuthStore.getState().setPendingPassword(password);
+        router.push(
+          `/(public)/auth/otp?purpose=${response.purpose ?? "LOGIN"}`
+        );
+        return;
+      }
+
+      if (!response?.accessToken) {
+        throw new Error("Login failed: missing accessToken");
+      }
+
+      if (response.user?.role === "farmer") {
         router.replace("/(farmer)/dashboard");
       } else {
         router.replace("/(buyer)/home");
       }
     } catch (error: any) {
-      Alert.alert("Login Failed", error.message || "An error occurred");
+      Alert.alert("Login Failed", error?.message || "An error occurred");
     } finally {
       setLoading(false);
     }

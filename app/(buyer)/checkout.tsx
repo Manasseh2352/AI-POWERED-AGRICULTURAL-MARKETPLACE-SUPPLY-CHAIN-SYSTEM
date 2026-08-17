@@ -1,226 +1,198 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const deliveryMethods = [
-  {
-    id: "ai",
-    title: "AI-Optimized Express",
-    subtitle: "Next available harvest window",
-    price: "$12.50",
-    eta: "ETA: 4-6 Hours",
-    recommended: true,
-    icon: "sparkles",
-  },
-  {
-    id: "ground",
-    title: "Standard Ground",
-    subtitle: "Scheduled route delivery",
-    price: "$4.00",
-    eta: "ETA: Tomorrow, 8 AM - 12 PM",
-    recommended: false,
-    icon: "truck",
-  },
-];
+import { OrderService } from "@/services/order.service";
+import { useCartStore } from "@/store/cartStore";
+import { useAuthStore } from "@/store/authStore";
 
 export default function Checkout() {
   const router = useRouter();
-  const [selectedDelivery, setSelectedDelivery] = useState("ai");
+
+  const items = useCartStore((s) => s.items);
+  const subtotal = useCartStore((s) => s.subtotal());
+  const totalKg = useCartStore((s) => s.totalItems());
+  const clearCart = useCartStore((s) => s.clear);
+  const user = useAuthStore((s) => s.user);
+
+  const [name, setName] = useState("");
+  const [address, setAddress] = useState("");
+  const [phone, setPhone] = useState("");
+  const [notes, setNotes] = useState("");
+  const [placing, setPlacing] = useState(false);
+
+  // Prefill the recipient name from the signed-in buyer.
+  useEffect(() => {
+    if (user?.fullName) setName(user.fullName);
+  }, [user?.fullName]);
+
+  // If the cart empties (e.g. after placing), bounce back to the marketplace.
+  useEffect(() => {
+    if (items.length === 0 && !placing) {
+      router.replace("/(buyer)/marketplace");
+    }
+  }, [items.length, placing, router]);
+
+  const handlePlaceOrder = async () => {
+    if (items.length === 0) return;
+    if (!name.trim() || !address.trim() || !phone.trim()) {
+      Alert.alert("Missing details", "Please enter the recipient name, delivery address, and phone number.");
+      return;
+    }
+
+    setPlacing(true);
+    try {
+      const res = await OrderService.createOrder({
+        items: items.map((i) => ({
+          productId: i.product.id,
+          quantityKg: i.quantityKg,
+          unitPrice: i.product.pricePerKg,
+        })),
+        destinationName: name.trim(),
+        destinationAddress: address.trim(),
+        destinationPhone: phone.trim(),
+        notes: notes.trim() || undefined,
+      });
+
+      const orderId = res?.orderId ?? res?.order?.id;
+      if (!orderId) {
+        throw new Error("Order was created but no order id was returned.");
+      }
+
+      clearCart();
+      router.replace(`/(buyer)/payment?orderId=${orderId}`);
+    } catch (err: any) {
+      Alert.alert("Could not place order", err?.message || "Please try again.");
+      setPlacing(false);
+    }
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
-      <ScrollView showsVerticalScrollIndicator={false}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        keyboardShouldPersistTaps="handled"
+      >
         <View className="px-5 pt-4">
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
               className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
             >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={20}
-                color="#14532d"
-              />
+              <MaterialCommunityIcons name="arrow-left" size={20} color="#14532d" />
             </TouchableOpacity>
             <Text className="text-xl font-bold text-emerald-900">Checkout</Text>
-            <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
-              <MaterialCommunityIcons
-                name="shield-lock"
-                size={20}
-                color="#14532d"
-              />
-            </TouchableOpacity>
+            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
+              <MaterialCommunityIcons name="shield-lock" size={20} color="#14532d" />
+            </View>
           </View>
 
           <View className="mt-6 self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2">
             <View className="flex-row items-center gap-2">
-              <MaterialCommunityIcons
-                name="shield-check"
-                size={16}
-                color="#166534"
-              />
+              <MaterialCommunityIcons name="shield-check" size={16} color="#166534" />
               <Text className="text-sm font-semibold text-emerald-900">
-                Secure end-to-end encrypted transaction
+                Secure, encrypted transaction
               </Text>
             </View>
           </View>
 
-          <Text className="mt-8 text-base font-semibold text-slate-900">
-            Shipping Address
-          </Text>
-          <TouchableOpacity className="mt-4 flex-row items-center justify-between rounded-full bg-white px-3 py-2 shadow-sm shadow-black/5">
-            <Text className="text-sm font-semibold text-emerald-800">
-              Change
-            </Text>
-          </TouchableOpacity>
-
-          <View className="mt-5 overflow-hidden rounded-[28px] bg-slate-100">
-            <Image
-              source={require("@/assets/images/Home.jpeg")}
-              contentFit="cover"
-              className="absolute inset-0 h-full w-full"
-            />
-            <View className="absolute inset-0 bg-slate-900/10" />
-            <View className="relative p-5">
-              <View className="rounded-[28px] bg-white p-5 shadow-sm shadow-black/10">
-                <Text className="text-base font-bold text-slate-900">
-                  Green Valley Estate, Block 42
-                </Text>
-                <Text className="mt-2 text-sm text-slate-500">
-                  Kansas River Valley, KS 66044
-                </Text>
-              </View>
+          {/* Delivery details */}
+          <Text className="mt-8 text-base font-semibold text-slate-900">Delivery Details</Text>
+          <View className="mt-4 rounded-[28px] bg-white p-5 shadow-sm shadow-black/5 gap-4">
+            <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">Recipient Name</Text>
+              <TextInput
+                value={name}
+                onChangeText={setName}
+                placeholder="Full name"
+                placeholderTextColor="#9ca3af"
+                className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
+              />
+            </View>
+            <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">Delivery Address</Text>
+              <TextInput
+                value={address}
+                onChangeText={setAddress}
+                placeholder="Street, city, region"
+                placeholderTextColor="#9ca3af"
+                multiline
+                numberOfLines={3}
+                className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
+                style={{ textAlignVertical: "top" }}
+              />
+            </View>
+            <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">Phone Number</Text>
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+1 (555) 000-0000"
+                placeholderTextColor="#9ca3af"
+                keyboardType="phone-pad"
+                className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
+              />
+            </View>
+            <View>
+              <Text className="text-sm font-semibold text-slate-700 mb-2">Notes (optional)</Text>
+              <TextInput
+                value={notes}
+                onChangeText={setNotes}
+                placeholder="Delivery instructions, preferred window, etc."
+                placeholderTextColor="#9ca3af"
+                className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
+              />
             </View>
           </View>
 
-          <Text className="mt-8 text-base font-semibold text-slate-900">
-            Delivery Method
-          </Text>
-          <View className="mt-4 space-y-4">
-            {deliveryMethods.map((method) => {
-              const active = selectedDelivery === method.id;
-              return (
-                <TouchableOpacity
-                  key={method.id}
-                  onPress={() => setSelectedDelivery(method.id)}
-                  className={`rounded-[28px] border px-4 py-4 ${
-                    active
-                      ? "border-emerald-700 bg-emerald-50"
-                      : "border-slate-200 bg-white"
-                  }`}
-                >
-                  <View className="flex-row items-center gap-4">
-                    <View
-                      className={`h-14 w-14 rounded-3xl ${active ? "bg-emerald-100" : "bg-slate-100"} items-center justify-center`}
-                    >
-                      <MaterialCommunityIcons
-                        name={method.icon as any}
-                        size={22}
-                        color={active ? "#14532d" : "#64748b"}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <View className="flex-row items-center justify-between gap-2">
-                        <Text className="text-base font-semibold text-slate-900">
-                          {method.title}
-                        </Text>
-                        <Text className="text-base font-bold text-slate-900">
-                          {method.price}
-                        </Text>
-                      </View>
-                      <Text className="mt-1 text-sm text-slate-500">
-                        {method.subtitle}
-                      </Text>
-                      <View className="mt-3 flex-row items-center gap-2 rounded-full bg-slate-100 px-3 py-2">
-                        <MaterialCommunityIcons
-                          name="clock-time-three"
-                          size={14}
-                          color="#a16207"
-                        />
-                        <Text className="text-sm font-semibold text-amber-700">
-                          {method.eta}
-                        </Text>
-                      </View>
-                    </View>
-                  </View>
-                  {method.recommended ? (
-                    <View className="mt-4 self-start rounded-full bg-emerald-900 px-3 py-1">
-                      <Text className="text-xs font-bold uppercase tracking-[0.2em] text-white">
-                        Recommended
-                      </Text>
-                    </View>
-                  ) : null}
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-
-          <Text className="mt-8 text-base font-semibold text-slate-900">
-            Order Summary
-          </Text>
+          {/* Order summary */}
+          <Text className="mt-8 text-base font-semibold text-slate-900">Order Summary</Text>
           <View className="mt-4 rounded-[28px] bg-white p-5 shadow-sm shadow-black/5">
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="text-sm text-slate-600">
-                Premium Organic Wheat
-              </Text>
-              <Text className="text-sm font-semibold text-slate-900">
-                $145.00
-              </Text>
-            </View>
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="text-sm text-slate-600">
-                Logistics & AI Routing
-              </Text>
-              <Text className="text-sm font-semibold text-slate-900">
-                $12.50
-              </Text>
-            </View>
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="text-sm text-slate-600">Tax (Est.)</Text>
-              <Text className="text-sm font-semibold text-slate-900">
-                $11.60
-              </Text>
-            </View>
-            <View className="my-3 h-px bg-slate-100" />
-            <View className="flex-row items-center justify-between py-2">
-              <Text className="text-base font-semibold text-slate-900">
-                Total
-              </Text>
-              <Text className="text-2xl font-bold text-emerald-800">
-                $169.10
-              </Text>
-            </View>
-          </View>
-
-          <View className="mt-6 rounded-[28px] bg-white p-5 shadow-sm shadow-black/5">
-            <View className="flex-row items-center justify-between">
-              <View className="flex-row items-center gap-3">
-                <View className="h-12 w-12 rounded-3xl bg-slate-100 items-center justify-center">
-                  <Text className="text-sm font-bold text-slate-900">VISA</Text>
-                </View>
-                <View>
-                  <Text className="text-base font-semibold text-slate-900">
-                    •••• 4421
-                  </Text>
-                  <Text className="text-sm text-slate-500">Expires 08/26</Text>
-                </View>
-              </View>
-              <TouchableOpacity>
-                <Text className="text-sm font-semibold text-emerald-800">
-                  Edit
+            {items.map(({ product, quantityKg }) => (
+              <View key={product.id} className="flex-row items-center justify-between py-2">
+                <Text className="text-sm text-slate-600 flex-1 pr-3" numberOfLines={1}>
+                  {product.name} · {quantityKg}kg
                 </Text>
-              </TouchableOpacity>
+                <Text className="text-sm font-semibold text-slate-900">
+                  ${(product.pricePerKg * quantityKg).toFixed(2)}
+                </Text>
+              </View>
+            ))}
+            <View className="my-3 h-px bg-slate-100" />
+            <View className="flex-row items-center justify-between py-1">
+              <Text className="text-sm text-slate-600">Subtotal ({totalKg}kg)</Text>
+              <Text className="text-sm font-semibold text-slate-900">${subtotal.toFixed(2)}</Text>
             </View>
+            <Text className="mt-2 text-xs text-slate-400">
+              Freight and tax are calculated by the logistics engine and shown on the payment screen.
+            </Text>
           </View>
 
           <TouchableOpacity
-            onPress={() => router.push("/(buyer)/payment")}
-            className="mt-6 rounded-[32px] bg-emerald-900 px-6 py-4 items-center justify-center"
+            onPress={handlePlaceOrder}
+            disabled={placing}
+            className={`mt-6 rounded-[32px] px-6 py-4 items-center justify-center ${
+              placing ? "bg-emerald-400" : "bg-emerald-900"
+            }`}
           >
-            <Text className="text-base font-semibold text-white">Pay Now</Text>
+            {placing ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <View className="flex-row items-center gap-2">
+                <Text className="text-base font-semibold text-white">Place Order</Text>
+                <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
+              </View>
+            )}
           </TouchableOpacity>
         </View>
       </ScrollView>

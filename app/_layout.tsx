@@ -4,7 +4,7 @@ import { useLoadingStore } from "@/store/loadingStore";
 import { Image } from "expo-image";
 import { Stack, useRouter, useSegments } from "expo-router";
 import { cssInterop } from "nativewind";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
 
@@ -14,17 +14,19 @@ export default function RootLayout() {
   const router = useRouter();
   const segments = useSegments();
 
-  const [appReady, setAppReady] = useState(false);
   const loading = useLoadingStore((s) => s.loading);
-  const { user, token } = useAuthStore();
+  const { user, token, hydrated, hydrate } = useAuthStore();
 
   useEffect(() => {
-    // App is ready once zustand store is initialized
-    setAppReady(true);
-  }, []);
+    // Restore token + user from secure storage before we decide where to route.
+    hydrate();
+  }, [hydrate]);
+
+  // App is ready once auth has been restored from storage.
+  const appReady = hydrated;
 
   useEffect(() => {
-    if (!appReady || segments.length === 0) return;
+    if (!appReady || (segments as string[]).length === 0) return;
 
     const inPublic = segments[0] === "(public)";
     const inBuyer = segments[0] === "(buyer)";
@@ -35,17 +37,20 @@ export default function RootLayout() {
     // Not logged in → force public flow
     if (!token) {
       if (!inPublic && !inAI && !inShared) {
-        router.replace("/(public)/splash");
+        router.replace("/");
       }
       return;
     }
 
-    // Logged in → route by role
-    if (user?.role === "buyer" && !inBuyer && !inShared && !inAI) {
+    // Logged in → keep the user inside their own stack, but NEVER yank them out
+    // of the public funnel (onboarding/auth). Cold launch lands on "/" (exempt),
+    // and login/OTP navigate explicitly — so a token-holder can still walk through
+    // "Get Started" or sign in as a different account instead of being bounced home.
+    if (user?.role === "buyer" && !inBuyer && !inShared && !inAI && !inPublic) {
       router.replace("/(buyer)/home");
     }
 
-    if (user?.role === "farmer" && !inFarmer && !inShared && !inAI) {
+    if (user?.role === "farmer" && !inFarmer && !inShared && !inAI && !inPublic) {
       router.replace("/(farmer)/dashboard");
     }
   }, [appReady, user, token, segments]);

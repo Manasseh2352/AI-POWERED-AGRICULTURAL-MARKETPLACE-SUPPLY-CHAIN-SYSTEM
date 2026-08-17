@@ -11,30 +11,25 @@ import {
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useEffect, useState, useCallback } from "react";
-import { ProductService } from "@/services/product.service";
+import { useEffect, useState, useCallback, useMemo } from "react";
+import { ProductService, type UiProduct } from "@/services/product.service";
+import { useCartStore } from "@/store/cartStore";
 
-type Product = {
-  id: string;
-  name: string;
-  description: string;
-  price: number;
-  category: string;
-  seller?: string;
-  images: string[];
-};
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
 
 function ProductCard({
   product,
   router,
-  perishable,
+  onAdd,
 }: {
-  product: Product;
+  product: UiProduct;
   router: ReturnType<typeof useRouter>;
-  perishable: boolean;
+  onAdd: (p: UiProduct) => void;
 }) {
-  const imageUrl = product.images?.[0] || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
-  
+  const imageUrl = product.images?.[0] || FALLBACK_IMAGE;
+  const perishable = product.perishable;
+
   return (
     <View className="mb-4 rounded-[32px] bg-white shadow-sm shadow-black/5 overflow-hidden">
       <TouchableOpacity
@@ -62,20 +57,33 @@ function ProductCard({
 
       <View className="p-5">
         <Text className="text-lg font-semibold text-slate-900">{product.name}</Text>
-        <Text className="text-sm text-slate-500 mt-1" numberOfLines={1}>{product.description}</Text>
+        <Text className="text-sm text-slate-500 mt-1" numberOfLines={1}>
+          {product.description}
+        </Text>
 
         <View className="mt-4 flex-row items-end justify-between">
           <View>
-            <Text className="text-xl font-bold text-slate-900">${product.price.toFixed(2)}</Text>
-            <Text className="text-xs text-slate-500">per unit</Text>
+            <Text className="text-xl font-bold text-slate-900">
+              ${product.pricePerKg.toFixed(2)}
+            </Text>
+            <Text className="text-xs text-slate-500">per kg</Text>
           </View>
           <View className="flex-row items-center gap-2">
             <MaterialCommunityIcons name="account" size={16} color="#6b7280" />
-            <Text className="text-sm text-slate-500">{product.seller || "Verified Farmer"}</Text>
+            <Text className="text-sm text-slate-500" numberOfLines={1}>
+              {product.seller}
+            </Text>
           </View>
         </View>
 
-        <TouchableOpacity className="mt-6 rounded-3xl bg-emerald-900 py-4 items-center justify-center">
+        <Text className="mt-1 text-xs text-slate-400">
+          {product.quantityKg.toLocaleString()}kg available
+        </Text>
+
+        <TouchableOpacity
+          onPress={() => onAdd(product)}
+          className="mt-6 rounded-3xl bg-emerald-900 py-4 items-center justify-center"
+        >
           <View className="flex-row items-center gap-2">
             <MaterialCommunityIcons name="cart" size={18} color="#fff" />
             <Text className="text-sm font-semibold text-white">Add to Cart</Text>
@@ -88,10 +96,14 @@ function ProductCard({
 
 export default function Marketplace() {
   const router = useRouter();
-  
-  const [products, setProducts] = useState<Product[]>([]);
+
+  const [products, setProducts] = useState<UiProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const addItem = useCartStore((s) => s.addItem);
+  const cartCount = useCartStore((s) => s.items.length);
 
   const loadProducts = async () => {
     try {
@@ -114,14 +126,23 @@ export default function Marketplace() {
     loadProducts();
   }, []);
 
-  // Determine perishability based on category string
-  const isPerishable = (category: string) => {
-    const lower = (category || "").toLowerCase();
-    return lower.includes("veg") || lower.includes("fruit") || lower.includes("dairy") || lower.includes("meat") || lower.includes("perishable");
+  const handleAdd = (p: UiProduct) => {
+    addItem(p, 1);
   };
 
-  const perishableProducts = products.filter(p => isPerishable(p.category));
-  const nonPerishableProducts = products.filter(p => !isPerishable(p.category));
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return products;
+    return products.filter(
+      (p) =>
+        p.name.toLowerCase().includes(q) ||
+        p.seller.toLowerCase().includes(q) ||
+        p.productName.toLowerCase().includes(q)
+    );
+  }, [products, search]);
+
+  const perishableProducts = filtered.filter((p) => p.perishable);
+  const nonPerishableProducts = filtered.filter((p) => !p.perishable);
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
@@ -146,40 +167,19 @@ export default function Marketplace() {
           <View className="flex-row items-center gap-3">
             <MaterialCommunityIcons name="magnify" size={20} color="#6b7280" />
             <TextInput
-              placeholder="Search fresh produce, grains, or farms"
+              placeholder="Search produce or farms"
               placeholderTextColor="#9ca3af"
+              value={search}
+              onChangeText={setSearch}
               className="flex-1 text-base text-slate-900"
             />
+            {search.length > 0 && (
+              <TouchableOpacity onPress={() => setSearch("")}>
+                <MaterialCommunityIcons name="close-circle" size={18} color="#9ca3af" />
+              </TouchableOpacity>
+            )}
           </View>
         </View>
-
-        {/* FILTER CHIPS */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={{ paddingVertical: 18 }}
-        >
-          {[
-            { label: "Trending", active: true },
-            { label: "Nearby", active: false },
-            { label: "Organic", active: false },
-          ].map((chip) => (
-            <TouchableOpacity
-              key={chip.label}
-              className={`mr-3 rounded-full px-5 py-3 ${
-                chip.active ? "bg-emerald-700" : "bg-white"
-              }`}
-            >
-              <Text
-                className={`text-sm font-semibold ${
-                  chip.active ? "text-white" : "text-slate-900"
-                }`}
-              >
-                {chip.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
       </View>
 
       {/* PRODUCT LIST */}
@@ -190,16 +190,20 @@ export default function Marketplace() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 120 }}
+          contentContainerStyle={{ paddingHorizontal: 6, paddingTop: 18, paddingBottom: 120 }}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#047857" />
           }
         >
-          {products.length === 0 && (
-             <View className="py-10 items-center justify-center">
-                <MaterialCommunityIcons name="basket-off-outline" size={48} color="#9ca3af" />
-                <Text className="text-gray-500 mt-4 text-center px-4">No products available at the moment. Check back later.</Text>
-             </View>
+          {filtered.length === 0 && (
+            <View className="py-10 items-center justify-center">
+              <MaterialCommunityIcons name="basket-off-outline" size={48} color="#9ca3af" />
+              <Text className="text-gray-500 mt-4 text-center px-4">
+                {products.length === 0
+                  ? "No products available yet. Pull down to refresh."
+                  : "No products match your search."}
+              </Text>
+            </View>
           )}
 
           {/* ── PERISHABLE SECTION ── */}
@@ -227,7 +231,7 @@ export default function Marketplace() {
               </View>
 
               {perishableProducts.map((product) => (
-                <ProductCard key={product.id} product={product} router={router} perishable={true} />
+                <ProductCard key={product.id} product={product} router={router} onAdd={handleAdd} />
               ))}
             </View>
           )}
@@ -257,20 +261,24 @@ export default function Marketplace() {
               </View>
 
               {nonPerishableProducts.map((product) => (
-                <ProductCard key={product.id} product={product} router={router} perishable={false} />
+                <ProductCard key={product.id} product={product} router={router} onAdd={handleAdd} />
               ))}
             </View>
           )}
-
         </ScrollView>
       )}
 
-      {/* FAB */}
+      {/* FAB with cart count */}
       <TouchableOpacity
         onPress={() => router.push("/(buyer)/cart")}
         className="absolute bottom-8 right-6 h-16 w-16 items-center justify-center rounded-full bg-amber-400 shadow-xl shadow-amber-400/30"
       >
         <MaterialCommunityIcons name="cart" size={28} color="#064e3b" />
+        {cartCount > 0 && (
+          <View className="absolute -right-1 -top-1 h-6 w-6 items-center justify-center rounded-full bg-emerald-900">
+            <Text className="text-xs font-bold text-white">{cartCount}</Text>
+          </View>
+        )}
       </TouchableOpacity>
     </SafeAreaView>
   );

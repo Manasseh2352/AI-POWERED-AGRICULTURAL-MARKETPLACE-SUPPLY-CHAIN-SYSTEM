@@ -1,4 +1,3 @@
-import { useAuthStore } from "@/store/authStore";
 import { useRoleStore } from "@/store/roleStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
@@ -17,7 +16,6 @@ import { AuthService } from "@/services/auth.service";
 export default function Register() {
   const router = useRouter();
   const role = useRoleStore((s) => s.role);
-  const setPendingEmail = useAuthStore((s) => s.setPendingEmail);
 
   // Buyer form state
   const [buyerForm, setBuyerForm] = useState({
@@ -57,17 +55,20 @@ export default function Register() {
       Alert.alert("Error", "Please agree to Terms of Service");
       return;
     }
+    if (buyerForm.password.length < 8) {
+      Alert.alert("Error", "Password must be at least 8 characters.");
+      return;
+    }
 
     setLoading(true);
     try {
       await AuthService.register({
         fullName: buyerForm.fullName,
-        email: buyerForm.workEmail,
+        email: buyerForm.workEmail.trim(),
         phone: buyerForm.phoneNumber,
         password: buyerForm.password,
         role: "buyer"
       });
-      setPendingEmail(buyerForm.workEmail);
       router.push(`/(public)/auth/otp?role=buyer`);
     } catch (err: any) {
       Alert.alert("Registration Failed", err.message);
@@ -85,17 +86,21 @@ export default function Register() {
       Alert.alert("Error", "Please agree to Terms of Service");
       return;
     }
+    if (farmerForm.password.length < 8) {
+      Alert.alert("Error", "Password must be at least 8 characters.");
+      return;
+    }
 
     setLoading(true);
     try {
       await AuthService.register({
         fullName: farmerForm.farmName, // Using farm name as full name for now
-        email: farmerForm.email,
+        email: farmerForm.email.trim(),
         phone: farmerForm.phoneNumber,
         password: farmerForm.password,
+        farmName: farmerForm.farmName,
         role: "farmer"
       });
-      setPendingEmail(farmerForm.email);
       router.push(`/(public)/auth/otp?role=farmer`);
     } catch (err: any) {
       Alert.alert("Registration Failed", err.message);

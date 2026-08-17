@@ -1,8 +1,16 @@
 import { useRoleStore } from "@/store/roleStore";
+import { useAuthStore } from "@/store/authStore";
+import { AuthService } from "@/services/auth.service";
+import {
+  ProfileService,
+  formatMoney,
+  type BuyerDashboard,
+} from "@/services/profile.service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const SETTINGS = [
@@ -15,10 +23,33 @@ const SETTINGS = [
 export default function Profile() {
   const router = useRouter();
   const setRole = useRoleStore((s) => s.setRole);
+  const user = useAuthStore((s) => s.user);
+
+  const [dashboard, setDashboard] = useState<BuyerDashboard | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    ProfileService.getBuyerDashboard()
+      .then((d) => alive && setDashboard(d))
+      .catch(() => alive && setDashboard(null))
+      .finally(() => alive && setLoadingStats(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const switchToFarmer = () => {
     setRole("farmer");
     router.replace("/(farmer)/dashboard");
+  };
+
+  const handleLogout = () => {
+    // Clear the persisted token + user, then return to the landing ("/"), which
+    // has the Login / Get Started actions. (The root layout also redirects on a
+    // cleared token; navigating here avoids a flash of the buyer UI.)
+    AuthService.logout();
+    router.replace("/");
   };
 
   return (
@@ -65,51 +96,57 @@ export default function Profile() {
           </View>
 
           <Text className="mt-5 text-3xl font-bold text-slate-900">
-            Julian Thorne
+            {user?.fullName || "Your Account"}
           </Text>
-          <View className="mt-2 flex-row items-center gap-2">
-            <MaterialCommunityIcons
-              name="map-marker"
-              size={16}
-              color="#6b7280"
-            />
-            <Text className="text-sm text-gray-500">Portland, Oregon</Text>
-          </View>
-
-          <View className="mt-4 rounded-full bg-emerald-100 px-5 py-2">
-            <Text className="text-sm font-semibold text-emerald-700">
-              Premium Buyer
-            </Text>
-          </View>
+          {user?.email ? (
+            <View className="mt-2 flex-row items-center gap-2">
+              <MaterialCommunityIcons
+                name="email-outline"
+                size={16}
+                color="#6b7280"
+              />
+              <Text className="text-sm text-gray-500">{user.email}</Text>
+            </View>
+          ) : null}
         </View>
 
         <View className="mt-8 flex-row gap-3">
           <View className="flex-1 rounded-[32px] bg-white p-5 shadow-sm shadow-black/5">
             <View className="h-12 w-12 rounded-2xl bg-emerald-50 items-center justify-center">
-              <MaterialCommunityIcons name="leaf" size={20} color="#047857" />
+              <MaterialCommunityIcons name="package-variant" size={20} color="#047857" />
             </View>
             <Text className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">
-              Impact
+              Orders
             </Text>
-            <Text className="mt-3 text-3xl font-bold text-slate-900">
-              124kg
-            </Text>
-            <Text className="mt-1 text-sm text-gray-500">CO2 Saved</Text>
+            {loadingStats ? (
+              <ActivityIndicator className="mt-3 self-start" color="#047857" />
+            ) : (
+              <Text className="mt-3 text-3xl font-bold text-slate-900">
+                {dashboard?.totalOrders ?? 0}
+              </Text>
+            )}
+            <Text className="mt-1 text-sm text-gray-500">Total orders</Text>
           </View>
 
           <View className="flex-1 rounded-[32px] bg-white p-5 shadow-sm shadow-black/5">
             <View className="h-12 w-12 rounded-2xl bg-rose-50 items-center justify-center">
               <MaterialCommunityIcons
-                name="clock-outline"
+                name="cash-multiple"
                 size={20}
                 color="#9d174d"
               />
             </View>
             <Text className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">
-              Orders
+              Spent
             </Text>
-            <Text className="mt-3 text-3xl font-bold text-slate-900">42</Text>
-            <Text className="mt-1 text-sm text-gray-500">This Year</Text>
+            {loadingStats ? (
+              <ActivityIndicator className="mt-3 self-start" color="#9d174d" />
+            ) : (
+              <Text className="mt-3 text-3xl font-bold text-slate-900">
+                {formatMoney(dashboard?.totalSpent)}
+              </Text>
+            )}
+            <Text className="mt-1 text-sm text-gray-500">All time</Text>
           </View>
         </View>
 
@@ -153,7 +190,7 @@ export default function Profile() {
         </TouchableOpacity>
 
         <TouchableOpacity
-          onPress={() => router.replace("/(public)/auth/login")}
+          onPress={handleLogout}
           className="mt-4 flex-row items-center justify-center gap-2 rounded-[28px] border border-red-200 bg-white px-5 py-4 shadow-sm shadow-black/5"
         >
           <MaterialCommunityIcons name="logout" size={20} color="#b91c1c" />

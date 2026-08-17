@@ -4,42 +4,44 @@ import { useRouter } from "expo-router";
 import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
-import { ProductService } from "@/services/product.service";
-import { useAuthStore } from "@/store/authStore";
+import { ProductService, type UiProduct } from "@/services/product.service";
+
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
 
 export default function Inventory() {
   const router = useRouter();
-  const { user } = useAuthStore();
-  
-  const [inventory, setInventory] = useState<any[]>([]);
+
+  const [inventory, setInventory] = useState<UiProduct[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
   const loadData = async () => {
-     if (!user) return;
-     try {
-       const products = await ProductService.getProductsByFarmer(user.id);
-       setInventory(products);
-     } catch(e) {
-       console.error(e);
-     } finally {
-       setLoading(false);
-       setRefreshing(false);
-     }
+    try {
+      const products = await ProductService.getMyProducts();
+      setInventory(products);
+    } catch (e) {
+      console.error("Failed to load inventory", e);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
   };
 
   useEffect(() => {
     loadData();
-  }, [user]);
+  }, []);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     loadData();
-  }, [user]);
+  }, []);
+
+  const totalStock = inventory.reduce((acc, curr) => acc + (curr.quantityKg || 0), 0);
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
-      <ScrollView 
+      <ScrollView
         showsVerticalScrollIndicator={false}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#047857" />}
       >
@@ -53,9 +55,12 @@ export default function Inventory() {
               </Text>
             </View>
             <View className="flex-row gap-3">
-              <TouchableOpacity className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
+              <TouchableOpacity
+                onPress={() => router.push("/(farmer)/upload")}
+                className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
+              >
                 <MaterialCommunityIcons
-                  name="magnify"
+                  name="plus"
                   size={20}
                   color="#14532d"
                 />
@@ -80,7 +85,7 @@ export default function Inventory() {
                 Total Stock
               </Text>
               <Text className="text-2xl font-bold text-emerald-900 mt-2">
-                 {inventory.reduce((acc, curr) => acc + (curr.quantity || 0), 0)} kg
+                {totalStock.toLocaleString()} kg
               </Text>
             </View>
             <View className="flex-1 bg-white rounded-2xl p-4 shadow-sm shadow-black/5">
@@ -88,7 +93,7 @@ export default function Inventory() {
                 Active Listings
               </Text>
               <Text className="text-2xl font-bold text-emerald-900 mt-2">
-                {inventory.length} Items
+                {inventory.length} {inventory.length === 1 ? "Item" : "Items"}
               </Text>
             </View>
           </View>
@@ -103,12 +108,18 @@ export default function Inventory() {
           </View>
 
           {loading ? (
-             <ActivityIndicator size="large" color="#047857" className="mt-10" />
+            <ActivityIndicator size="large" color="#047857" className="mt-10" />
           ) : inventory.length === 0 ? (
-             <View className="py-10 items-center justify-center">
-               <MaterialCommunityIcons name="package-variant" size={48} color="#9ca3af" />
-               <Text className="text-gray-500 mt-4 text-center">You have no products listed.</Text>
-             </View>
+            <View className="py-10 items-center justify-center">
+              <MaterialCommunityIcons name="package-variant" size={48} color="#9ca3af" />
+              <Text className="text-gray-500 mt-4 text-center">You have no products listed.</Text>
+              <TouchableOpacity
+                onPress={() => router.push("/(farmer)/upload")}
+                className="mt-6 rounded-3xl bg-emerald-900 px-8 py-4"
+              >
+                <Text className="text-base font-semibold text-white">List your first produce</Text>
+              </TouchableOpacity>
+            </View>
           ) : (
             <View className="space-y-4">
               {inventory.map((item) => (
@@ -118,12 +129,17 @@ export default function Inventory() {
                 >
                   <View className="relative h-48 w-full">
                     <Image
-                      source={{ uri: item.images?.[0] || "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400" }}
+                      source={{ uri: item.images?.[0] || FALLBACK_IMAGE }}
                       className="w-full h-full"
                       contentFit="cover"
                     />
                     <View className="absolute top-3 left-3 bg-emerald-100 rounded-full px-3 py-1">
                       <Text className="text-xs font-bold text-emerald-700">Listed</Text>
+                    </View>
+                    <View className="absolute top-3 right-3 bg-white/90 rounded-full px-3 py-1">
+                      <Text className="text-xs font-bold text-slate-700">
+                        {item.perishable ? "Air Freight" : "Sea Freight"}
+                      </Text>
                     </View>
                   </View>
 
@@ -134,15 +150,23 @@ export default function Inventory() {
                           {item.name}
                         </Text>
                         <Text className="text-sm font-semibold text-emerald-700 mt-1">
-                          ${Number(item.price).toFixed(2)}/kg
+                          ${item.pricePerKg.toFixed(2)}/kg
                         </Text>
                       </View>
+                      {item.location ? (
+                        <View className="flex-row items-center gap-1">
+                          <MaterialCommunityIcons name="map-marker-outline" size={14} color="#9ca3af" />
+                          <Text className="text-xs text-gray-500">{item.location}</Text>
+                        </View>
+                      ) : null}
                     </View>
 
                     <View className="mt-3">
                       <View className="flex-row justify-between mb-1">
                         <Text className="text-xs text-gray-600 font-semibold">Stock Quantity</Text>
-                        <Text className="text-xs text-gray-600 font-semibold">{item.quantity} kg</Text>
+                        <Text className="text-xs text-gray-600 font-semibold">
+                          {item.quantityKg.toLocaleString()} kg
+                        </Text>
                       </View>
                     </View>
                   </View>
@@ -154,8 +178,11 @@ export default function Inventory() {
         <View className="h-32" />
       </ScrollView>
 
-      {/* FAB - Will be wired up later to create item */}
-      <TouchableOpacity className="absolute bottom-24 right-6 h-16 w-16 rounded-full bg-yellow-400 items-center justify-center shadow-lg shadow-yellow-400/40">
+      {/* FAB → upload produce */}
+      <TouchableOpacity
+        onPress={() => router.push("/(farmer)/upload")}
+        className="absolute bottom-24 right-6 h-16 w-16 rounded-full bg-yellow-400 items-center justify-center shadow-lg shadow-yellow-400/40"
+      >
         <MaterialCommunityIcons name="plus" size={28} color="#fff" />
       </TouchableOpacity>
     </SafeAreaView>

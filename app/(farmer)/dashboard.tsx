@@ -12,13 +12,16 @@ export default function Dashboard() {
     desc,
     icon,
     isHighlight,
+    onPress,
   }: {
     title: string;
     desc: string;
     icon: ReactNode;
     isHighlight?: boolean;
+    onPress?: () => void;
   }) => (
     <TouchableOpacity
+      onPress={onPress}
       className={`rounded-2xl p-4 mb-3 flex-row items-center ${
         isHighlight ? "bg-emerald-700" : "bg-gray-100"
       }`}
@@ -203,6 +206,7 @@ export default function Dashboard() {
           <QuickActionCard
             title="Upload Produce"
             desc="Add new items to marketplace"
+            onPress={() => router.push("/(farmer)/upload")}
             icon={
               <MaterialCommunityIcons
                 name="package-variant-closed"
@@ -215,6 +219,7 @@ export default function Dashboard() {
           <QuickActionCard
             title="View Orders"
             desc="Manage your current sales"
+            onPress={() => router.push("/(farmer)/orders")}
             icon={
               <MaterialCommunityIcons
                 name="clipboard-list"
@@ -226,6 +231,7 @@ export default function Dashboard() {
           <QuickActionCard
             title="Market Insights"
             desc="AI-driven price forecasts"
+            onPress={() => router.push("/(ai)/insight")}
             icon={
               <MaterialCommunityIcons
                 name="chart-line"
@@ -316,7 +322,10 @@ export default function Dashboard() {
               </Text>
             </View>
 
-            <TouchableOpacity className="bg-white rounded-full py-3 mb-3">
+            <TouchableOpacity
+              onPress={() => router.push("/(ai)/insight")}
+              className="bg-white rounded-full py-3 mb-3"
+            >
               <Text className="text-center text-emerald-700 font-bold text-sm">
                 See Detailed Report
               </Text>

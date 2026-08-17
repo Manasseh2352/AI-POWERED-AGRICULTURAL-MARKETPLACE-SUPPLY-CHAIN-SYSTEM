@@ -5,13 +5,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from "react-native";
 import { AuthService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/authStore";
-import { DEV_BYPASS_OTP } from "@/constants/api";
+
 
 export default function OTP() {
   const router = useRouter();
-  const { role: rawRole } = useLocalSearchParams();
+  const { role: rawRole, purpose: rawPurpose } = useLocalSearchParams();
   const role = rawRole === "farmer" || rawRole === "buyer" ? rawRole : undefined;
-  
+  const purpose =
+    rawPurpose === "LOGIN" || rawPurpose === "SIGNUP" ? rawPurpose : "SIGNUP";
+
   const [code, setCode] = useState(["", "", "", "", "", ""]);
   const [seconds, setSeconds] = useState(57);
   const [verifying, setVerifying] = useState(false);
@@ -22,10 +24,14 @@ export default function OTP() {
 
   useEffect(() => {
     if (!pendingEmail) {
-      Alert.alert("Error", "No pending registration found.");
-      router.replace("/(public)/auth/register");
+      Alert.alert("Error", "Your session expired. Please start again.");
+      router.replace(
+        purpose === "LOGIN"
+          ? "/(public)/auth/login"
+          : "/(public)/auth/register"
+      );
     }
-  }, [pendingEmail, router]);
+  }, [pendingEmail, router, purpose]);
 
   useEffect(() => {
     if (seconds === 0) return;
@@ -37,48 +43,77 @@ export default function OTP() {
 
   const verify = useCallback(async () => {
     if (verifying) return;
+
     const otpValue = code.join("");
-    
-    // In strict mode we expect 6 digit OTP. 
-    // The previous mockup used 4, but backend requires 6 digits.
-    if (otpValue.length !== 6 && !DEV_BYPASS_OTP) {
-        Alert.alert("Error", "Please enter a 6-digit OTP.");
-        return;
+
+
+    // Backend requires 6 digit OTP
+    if (otpValue.length !== 6) {
+      Alert.alert("Error", "Please enter a 6-digit OTP.");
+      return;
+    }
+
+    if (!pendingEmail || !purpose) {
+      Alert.alert("Error", "Missing OTP purpose/email. Please restart login/register.");
+      return;
     }
 
     setVerifying(true);
     setLoading(true);
-    
-    try {
-      if (DEV_BYPASS_OTP) {
-         console.warn("DEV_BYPASS_OTP is enabled. Bypassing OTP validation via fake setTimeout...");
-         await new Promise(r => setTimeout(r, 800));
-      } else {
-         await AuthService.verifyOTP(pendingEmail!, otpValue);
-      }
 
-      if (role === "farmer") {
-        router.replace("/(public)/auth/login"); // OTP verified, now they can login
+    try {
+      await AuthService.verifyOTP(
+        pendingEmail,
+        otpValue,
+        purpose as "LOGIN" | "SIGNUP"
+      );
+
+      // Verifying either purpose flips the PENDING account ACTIVE on the backend.
+      if (purpose === "LOGIN") {
+        // The password was stashed on the login screen — retry login now to get
+        // a token, then route into the app by role.
+        const password = useAuthStore.getState().pendingPassword;
+        if (!password) {
+          router.replace("/(public)/auth/login");
+          Alert.alert("Verified", "Account verified. Please log in to continue.");
+          return;
+        }
+        const result = await AuthService.login(pendingEmail, password);
+        useAuthStore.getState().setPendingPassword(null);
+        if (result?.accessToken) {
+          router.replace(
+            result.user?.role === "farmer"
+              ? "/(farmer)/dashboard"
+              : "/(buyer)/home"
+          );
+        } else {
+          router.replace("/(public)/auth/login");
+          Alert.alert("Verified", "Account verified. Please log in to continue.");
+        }
       } else {
-        router.replace("/(public)/auth/login"); // OTP verified, now they can login
+        // SIGNUP: the account is ACTIVE but we don't hold the password here, so
+        // send the user to the login screen to sign in.
+        router.replace("/(public)/auth/login");
+        Alert.alert("Success", "Account verified successfully. Please log in.");
       }
-      
-      Alert.alert("Success", "Account verified successfully. Please log in.");
-      
     } catch (err: any) {
-       Alert.alert("Verification Failed", err.message);
+      Alert.alert("Verification Failed", err?.message || "OTP verification failed");
     } finally {
-       setLoading(false);
-       setVerifying(false);
+      setLoading(false);
+      setVerifying(false);
     }
-  }, [verifying, role, router, setLoading, code, pendingEmail]);
+  }, [verifying, router, setLoading, code, pendingEmail, purpose]);
 
   useEffect(() => {
     if (verifying) return;
-    if (code.every((digit) => digit !== "")) {
+    if (code.every((digit) => digit !== "") && pendingEmail) {
+      // Verify only once after all 6 digits are entered.
       verify();
     }
-  }, [code, verifying, verify]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [code, pendingEmail]);
+
+
 
   useEffect(() => {
     inputs.current[0]?.focus();
@@ -102,14 +137,20 @@ export default function OTP() {
     }
   };
 
-  const resendCode = () => {
-    setSeconds(57);
-    Alert.alert("Info", "In a real app, an API call would be made here to resend the code.");
+  const resendCode = async () => {
+    if (!pendingEmail) return;
+    try {
+      await AuthService.resendOtp(pendingEmail, purpose as "LOGIN" | "SIGNUP");
+      setSeconds(57);
+      setCode(["", "", "", "", "", ""]);
+      inputs.current[0]?.focus();
+      Alert.alert("Code sent", `A new verification code was sent to ${pendingEmail}.`);
+    } catch (err: any) {
+      Alert.alert("Error", err?.message || "Could not resend the code.");
+    }
   };
 
-  const fillFakeOTP = () => {
-     setCode(["1", "2", "3", "4", "5", "6"]);
-  };
+
 
   return (
     <View className="flex-1 bg-[#f6faf4] px-6 justify-center">
@@ -174,16 +215,12 @@ export default function OTP() {
             <ActivityIndicator color="white" />
           ) : (
              <Text className="text-center text-base font-bold text-white">
-              Verify & Continue →
+              Verify &amp; Continue →
             </Text>
           )}
         </TouchableOpacity>
 
-        {DEV_BYPASS_OTP && (
-           <TouchableOpacity onPress={fillFakeOTP} className="mt-4 py-2">
-             <Text className="text-center text-red-500 font-bold">DEV BYPASS: Fill Code</Text>
-           </TouchableOpacity>
-        )}
+
 
         <View className="mt-6 items-center">
           <Text className="text-gray-400 text-sm">
