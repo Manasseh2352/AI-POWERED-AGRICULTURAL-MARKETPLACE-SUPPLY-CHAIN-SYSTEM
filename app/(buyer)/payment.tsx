@@ -1,135 +1,275 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
-import { useRouter } from "expo-router";
-import { useState } from "react";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { OrderService } from "@/services/order.service";
+import { PaymentService, type PaymentMethod } from "@/services/payment.service";
+import { useMoney } from "@/lib/useMoney";
 
-const paymentOptions = [
+type PaymentOption = {
+  id: PaymentMethod;
+  title: string;
+  subtitle: string;
+  note?: string;
+  icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
+};
+
+const paymentOptions: PaymentOption[] = [
   {
-    id: "escrow",
-    title: "Escrow Payment",
-    subtitle: "AI-Protected protection",
+    id: "CARD",
+    title: "Card Payment",
+    subtitle: "Visa, Mastercard, Verve",
     note: "Funds held securely until inspection.",
-    icon: "shield-check",
+    icon: "credit-card-outline",
   },
   {
-    id: "bank",
+    id: "BANK_TRANSFER",
     title: "Bank Transfer",
     subtitle: "Direct ACH or Wire",
-    note: "",
     icon: "bank",
   },
   {
-    id: "credit",
-    title: "Corporate Credit",
-    subtitle: "Net-30 terms available",
-    note: "",
-    icon: "credit-card-outline",
+    id: "WALLET",
+    title: "Wallet",
+    subtitle: "Pay from your HarvestAI balance",
+    icon: "wallet-outline",
   },
 ];
 
+const num = (v: any) => {
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
+};
+
 export default function Payment() {
   const router = useRouter();
-  const [selected, setSelected] = useState("escrow");
-  const total = 14240.5;
+  const { orderId: rawOrderId } = useLocalSearchParams();
+  const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+
+  const [order, setOrder] = useState<any | null>(null);
+  const [loadingOrder, setLoadingOrder] = useState(true);
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CARD");
+  const [paying, setPaying] = useState(false);
+  const { format } = useMoney();
+
+  const loadOrder = async () => {
+    if (!orderId) {
+      setLoadingOrder(false);
+      return;
+    }
+    try {
+      const o = await OrderService.getBuyerOrder(orderId);
+      setOrder(o);
+    } catch (err) {
+      console.error("Failed to load order", err);
+    } finally {
+      setLoadingOrder(false);
+    }
+  };
+
+  useEffect(() => {
+    loadOrder();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
+
+  const items = useMemo(() => {
+    if (!order?.shipmentGroups) return [];
+    return order.shipmentGroups.flatMap((g: any) => g.items ?? []);
+  }, [order]);
+
+  const subtotal = num(order?.subtotalAmount);
+  const tax = num(order?.taxAmount);
+  const shipping = num(order?.shippingAmount);
+  const total = num(order?.totalAmount);
+
+  const alreadyPaid =
+    Array.isArray(order?.payments) &&
+    order.payments.some((p: any) => p?.status === "PAID");
+
+  // Order amounts are stored in USD; format() renders them in the chosen currency.
+  const fmt = format;
+
+  const handlePayment = async () => {
+    if (!orderId) {
+      Alert.alert("Error", "No order to pay for.");
+      return;
+    }
+    setPaying(true);
+    try {
+      const res = await PaymentService.payForOrder(orderId, selectedPayment);
+      if (res?.alreadyPaid) {
+        Alert.alert("Already paid", "This order has already been paid for.");
+      } else {
+        Alert.alert("Payment successful", "Your order has been confirmed.");
+      }
+      router.replace("/(buyer)/orders/current");
+    } catch (err: any) {
+      Alert.alert("Payment failed", err?.message || "Please try again.");
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  if (loadingOrder) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#f4f7ef] items-center justify-center">
+        <ActivityIndicator size="large" color="#047857" />
+      </SafeAreaView>
+    );
+  }
+
+  if (!order) {
+    return (
+      <SafeAreaView className="flex-1 bg-[#f4f7ef] items-center justify-center px-8">
+        <MaterialCommunityIcons name="file-alert-outline" size={56} color="#9ca3af" />
+        <Text className="mt-4 text-lg font-semibold text-slate-700 text-center">
+          We couldn&apos;t find this order.
+        </Text>
+        <TouchableOpacity
+          onPress={() => router.replace("/(buyer)/marketplace")}
+          className="mt-6 rounded-3xl bg-emerald-900 px-6 py-3"
+        >
+          <Text className="text-white font-semibold">Back to marketplace</Text>
+        </TouchableOpacity>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-5 pt-4 pb-8">
+          {/* HEADER */}
           <View className="flex-row items-center justify-between">
             <TouchableOpacity
               onPress={() => router.back()}
               className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
             >
-              <MaterialCommunityIcons
-                name="arrow-left"
-                size={20}
-                color="#14532d"
-              />
+              <MaterialCommunityIcons name="arrow-left" size={20} color="#14532d" />
             </TouchableOpacity>
-            <Text className="text-xl font-bold text-emerald-900">Checkout</Text>
-            <TouchableOpacity className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
-              <MaterialCommunityIcons
-                name="shield-lock"
-                size={20}
-                color="#14532d"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View className="mt-6 self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2">
-            <View className="flex-row items-center gap-2">
-              <MaterialCommunityIcons
-                name="shield-check"
-                size={16}
-                color="#14532d"
-              />
-              <Text className="text-sm font-semibold text-emerald-900">
-                Secure Checkout
-              </Text>
+            <Text className="text-xl font-bold text-emerald-900">Payment</Text>
+            <View className="h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
+              <MaterialCommunityIcons name="shield-lock" size={20} color="#14532d" />
             </View>
           </View>
 
+          {/* SECURE BADGE */}
+          <View className="mt-6 self-start rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2">
+            <View className="flex-row items-center gap-2">
+              <MaterialCommunityIcons name="shield-check" size={16} color="#14532d" />
+              <Text className="text-sm font-semibold text-emerald-900">Secure Checkout</Text>
+            </View>
+          </View>
+
+          {/* TOTAL AMOUNT */}
           <View className="mt-8 items-center rounded-[32px] bg-white p-6 shadow-sm shadow-black/5">
             <Text className="text-sm font-semibold uppercase tracking-[0.25em] text-slate-500">
               Total Amount Due
             </Text>
-            <Text className="mt-4 text-5xl font-bold text-slate-900">
-              $
-              {total.toLocaleString(undefined, {
-                maximumFractionDigits: 2,
-                minimumFractionDigits: 2,
-              })}
-            </Text>
+            <Text className="mt-4 text-5xl font-bold text-slate-900">{fmt(total)}</Text>
             <View className="mt-3 flex-row items-center gap-2">
-              <View className="rounded-full bg-amber-100 px-3 py-1">
-                <Text className="text-xs font-bold uppercase tracking-[0.2em] text-amber-900">
-                  Pending
+              <View
+                className={`rounded-full px-3 py-1 ${
+                  alreadyPaid ? "bg-emerald-100" : "bg-amber-100"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-bold uppercase tracking-[0.2em] ${
+                    alreadyPaid ? "text-emerald-800" : "text-amber-900"
+                  }`}
+                >
+                  {alreadyPaid ? "Paid" : "Pending"}
                 </Text>
               </View>
-              <Text className="text-sm text-slate-600">Order #HG-8821</Text>
+              <Text className="text-sm text-slate-600">
+                Order #{String(order.id).slice(0, 8).toUpperCase()}
+              </Text>
             </View>
           </View>
 
-          <Text className="mt-8 text-base font-semibold text-slate-900">
-            Payment Method
-          </Text>
-          <View className="mt-4 space-y-4">
+          {/* PRICE BREAKDOWN */}
+          <View className="mt-6 rounded-[28px] bg-white p-5 shadow-sm shadow-black/5">
+            {items.map((it: any) => (
+              <View key={it.id} className="flex-row items-center justify-between py-2">
+                <Text className="text-sm text-slate-600 flex-1 pr-3" numberOfLines={1}>
+                  {it.product?.productName
+                    ? String(it.product.productName).charAt(0) +
+                      String(it.product.productName).slice(1).toLowerCase()
+                    : "Item"}{" "}
+                  · {num(it.quantity)}
+                  {it.unit ?? "kg"}
+                </Text>
+                <Text className="text-sm font-semibold text-slate-900">
+                  {fmt(num(it.lineTotal))}
+                </Text>
+              </View>
+            ))}
+            <View className="my-3 h-px bg-slate-100" />
+            <View className="flex-row items-center justify-between py-1">
+              <Text className="text-sm text-slate-500">Subtotal</Text>
+              <Text className="text-sm font-semibold text-slate-900">{fmt(subtotal)}</Text>
+            </View>
+            <View className="flex-row items-center justify-between py-1">
+              <Text className="text-sm text-slate-500">Shipping</Text>
+              <Text className="text-sm font-semibold text-slate-900">{fmt(shipping)}</Text>
+            </View>
+            <View className="flex-row items-center justify-between py-1">
+              <Text className="text-sm text-slate-500">Tax</Text>
+              <Text className="text-sm font-semibold text-slate-900">{fmt(tax)}</Text>
+            </View>
+            <View className="my-3 h-px bg-slate-100" />
+            <View className="flex-row items-center justify-between py-1">
+              <Text className="text-base font-bold text-slate-900">Total</Text>
+              <Text className="text-xl font-bold text-emerald-800">{fmt(total)}</Text>
+            </View>
+          </View>
+
+          {/* PAYMENT METHOD SECTION */}
+          <Text className="mt-8 text-base font-semibold text-slate-900">Payment Method</Text>
+          <View className="mt-4 gap-4">
             {paymentOptions.map((option) => {
-              const active = selected === option.id;
+              const active = selectedPayment === option.id;
               return (
                 <TouchableOpacity
                   key={option.id}
-                  onPress={() => setSelected(option.id)}
+                  onPress={() => setSelectedPayment(option.id)}
+                  disabled={alreadyPaid}
                   className={`rounded-[28px] border px-4 py-4 ${
-                    active
-                      ? "border-emerald-700 bg-emerald-50"
-                      : "border-slate-200 bg-white"
-                  }`}
+                    active ? "border-emerald-700 bg-emerald-50" : "border-slate-200 bg-white"
+                  } ${alreadyPaid ? "opacity-50" : ""}`}
                 >
                   <View className="flex-row items-start gap-4">
                     <View
-                      className={`h-14 w-14 rounded-3xl ${active ? "bg-emerald-100" : "bg-slate-100"} items-center justify-center`}
+                      className={`h-14 w-14 rounded-3xl ${
+                        active ? "bg-emerald-100" : "bg-slate-100"
+                      } items-center justify-center`}
                     >
                       <MaterialCommunityIcons
-                        name={option.icon as any}
+                        name={option.icon}
                         size={22}
                         color={active ? "#14532d" : "#64748b"}
                       />
                     </View>
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between gap-2">
-                        <View>
+                        <View className="flex-1">
                           <Text className="text-base font-semibold text-slate-900">
                             {option.title}
                           </Text>
-                          <Text className="mt-1 text-sm text-slate-500">
-                            {option.subtitle}
-                          </Text>
+                          <Text className="mt-1 text-sm text-slate-500">{option.subtitle}</Text>
                         </View>
                         <View
-                          className={`h-6 w-6 rounded-full border ${active ? "border-emerald-700 bg-emerald-700" : "border-slate-300 bg-white"}`}
+                          className={`h-6 w-6 rounded-full border ${
+                            active ? "border-emerald-700 bg-emerald-700" : "border-slate-300 bg-white"
+                          }`}
                         >
                           {active ? (
                             <MaterialCommunityIcons
@@ -143,9 +283,7 @@ export default function Payment() {
                       </View>
                       {option.note ? (
                         <View className="mt-3 rounded-full bg-emerald-100/60 px-3 py-2">
-                          <Text className="text-sm text-emerald-900">
-                            {option.note}
-                          </Text>
+                          <Text className="text-sm text-emerald-900">{option.note}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -155,20 +293,27 @@ export default function Payment() {
             })}
           </View>
 
+          {/* PAY BUTTON */}
           <TouchableOpacity
-            onPress={() => router.push("/(buyer)/orders/current")}
-            className="mt-8 rounded-[32px] bg-emerald-900 px-6 py-4 items-center justify-center"
+            onPress={handlePayment}
+            disabled={paying || alreadyPaid}
+            className={`mt-8 rounded-[32px] px-6 py-4 items-center justify-center ${
+              paying || alreadyPaid ? "bg-emerald-400" : "bg-emerald-900"
+            }`}
           >
-            <View className="flex-row items-center gap-2">
-              <MaterialCommunityIcons name="lock" size={20} color="#fff" />
-              <Text className="text-base font-semibold text-white">
-                Pay $
-                {total.toLocaleString(undefined, {
-                  maximumFractionDigits: 2,
-                  minimumFractionDigits: 2,
-                })}
-              </Text>
-            </View>
+            {paying ? (
+              <ActivityIndicator color="white" />
+            ) : alreadyPaid ? (
+              <View className="flex-row items-center gap-2">
+                <MaterialCommunityIcons name="check-circle" size={20} color="#fff" />
+                <Text className="text-base font-semibold text-white">Order Paid</Text>
+              </View>
+            ) : (
+              <View className="flex-row items-center gap-2">
+                <MaterialCommunityIcons name="lock" size={20} color="#fff" />
+                <Text className="text-base font-semibold text-white">Pay {fmt(total)}</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <Text className="mt-4 text-center text-sm text-slate-500">

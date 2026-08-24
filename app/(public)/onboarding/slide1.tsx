@@ -15,13 +15,18 @@ export default function Slide1() {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      <ScrollView
-        className="flex-1 bg-white"
-        showsVerticalScrollIndicator={false}
-      >
+    <SafeAreaView className="flex-1 relative">
+      {/* FULL-SCREEN BACKGROUND IMAGE */}
+      <Image
+        source={require("@/assets/images/_.jpeg")}
+        className="absolute inset-0 w-full h-full"
+        contentFit="cover"
+      />
+      <View className="absolute inset-0 bg-white/5" />
+
+      <ScrollView className="flex-1" showsVerticalScrollIndicator={false}>
         {/* HEADER */}
-        <View className="flex-row items-center justify-between px-6 pt-4">
+        <View className="flex-row items-center justify-between px-6 pt-4 z-10">
           <View className="flex-row items-center gap-2">
             <Text className="text-2xl">🌾</Text>
             <Text className="text-2xl font-bold text-emerald-700">
@@ -33,17 +38,11 @@ export default function Slide1() {
           </TouchableOpacity>
         </View>
 
-        {/* BACKGROUND IMAGE */}
-        <View className="mt-4 h-72 overflow-hidden rounded-2xl mx-6">
-          <Image
-            source={require("@/assets/images/Home.jpeg")}
-            className="w-full h-full"
-            contentFit="cover"
-          />
-        </View>
+        {/* SPACER FOR IMAGE */}
+        <View className="h-40" />
 
         {/* VERIFIED FARMER CARD */}
-        <View className="mx-6 mt-6 flex-row items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-lg shadow-black/5">
+        <View className="mx-6 flex-row items-center gap-4 bg-white rounded-2xl p-4 border border-gray-100 shadow-lg shadow-black/5">
           <View className="w-12 h-12 rounded-full bg-emerald-700 items-center justify-center">
             <Text className="text-lg">✓</Text>
           </View>
@@ -104,7 +103,7 @@ export default function Slide1() {
         {/* NEXT BUTTON */}
         <TouchableOpacity
           onPress={handleNext}
-          className="mx-6 mt-8 bg-emerald-700 rounded-2xl py-4 mb-8 shadow-lg shadow-emerald-700/20"
+          className="mx-6 mt-8 bg-emerald-700 rounded-2xl py-4 shadow-lg shadow-emerald-700/20"
         >
           <Text className="text-center text-white font-bold text-base">
             Next →

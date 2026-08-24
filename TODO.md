@@ -1,0 +1,6 @@
+- [ ] Inspect notification UI reference image and extract layout details
+- [ ] Read existing farmer notifications screen code and any related patterns/components
+- [ ] Design and implement Farmers Notifications screen to match reference (header, list, cards/badges)
+- [ ] Wire basic dummy notification data + styles
+- [ ] Ensure screen fits with existing Farmer layout and navigation
+- [ ] Run project typecheck/lint or start the app to verify rendering

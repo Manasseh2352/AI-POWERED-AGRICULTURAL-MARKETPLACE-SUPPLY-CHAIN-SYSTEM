@@ -1,5 +1,283 @@
-import { View } from "react-native";
+import { useRoleStore } from "@/store/roleStore";
+import { useAuthStore } from "@/store/authStore";
+import { AuthService } from "@/services/auth.service";
+import {
+  ProfileService,
+  type FarmerProfile,
+  type FarmerDashboard,
+} from "@/services/profile.service";
+import { useMoney } from "@/lib/useMoney";
+import CurrencyPicker from "@/lib/CurrencyPicker";
+import { chooseImageSource } from "@/lib/imagePick";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { Image } from "expo-image";
+import { useRouter } from "expo-router";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+
+const SETTINGS = [
+  { label: "Account Settings", icon: "account-cog" as const },
+  { label: "My Farms", icon: "sprout" as const },
+  { label: "Logistics", icon: "truck" as const },
+  { label: "Notification Preferences", icon: "bell-outline" as const },
+];
 
 export default function Profile() {
-  return <View />;
+  const router = useRouter();
+  const setRole = useRoleStore((s) => s.setRole);
+  const user = useAuthStore((s) => s.user);
+  const { code, format } = useMoney();
+
+  const [profile, setProfile] = useState<FarmerProfile | null>(null);
+  const [dashboard, setDashboard] = useState<FarmerDashboard | null>(null);
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      ProfileService.getFarmerProfile(),
+      ProfileService.getFarmerDashboard(),
+    ])
+      .then(([p, d]) => {
+        if (!alive) return;
+        setProfile(p);
+        setDashboard(d);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setProfile(null);
+        setDashboard(null);
+      })
+      .finally(() => alive && setLoadingStats(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const handleChangeAvatar = async () => {
+    const uri = await chooseImageSource({ square: true });
+    if (!uri) return;
+    setUploadingAvatar(true);
+    try {
+      const updated = await ProfileService.uploadFarmerProfileImage(uri);
+      if (updated) setProfile(updated);
+    } catch (err: any) {
+      Alert.alert("Upload failed", err?.message || "Could not update your photo.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const switchToBuyer = () => {
+    setRole("buyer");
+    router.replace("/(buyer)/home");
+  };
+
+  const handleLogout = () => {
+    // Clear the persisted token + user, then return to the landing ("/"), which
+    // has the Login / Get Started actions. (The root layout also redirects on a
+    // cleared token; navigating here avoids a flash of the farmer UI.)
+    AuthService.logout();
+    router.replace("/");
+  };
+
+  return (
+    <SafeAreaView className="flex-1 bg-[#eef6ee]">
+      <ScrollView
+        className="px-6"
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingBottom: 32 }}
+      >
+        <View className="flex-row items-center justify-between pt-4">
+          <View className="flex-row items-center gap-3">
+            <View className="h-11 w-11 rounded-2xl bg-emerald-700 items-center justify-center">
+              <MaterialCommunityIcons name="tractor" size={20} color="#fff" />
+            </View>
+            <Text className="text-xl font-bold text-emerald-900">
+              HarvestAI
+            </Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => router.push("/(farmer)/orders")}
+            className="rounded-full bg-white p-3 shadow-sm shadow-black/5"
+          >
+            <MaterialCommunityIcons
+              name="bell-outline"
+              size={20}
+              color="#065f46"
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View className="items-center mt-8">
+          <View className="relative">
+            <View className="h-40 w-40 rounded-full border-4 border-white bg-gray-200 overflow-hidden items-center justify-center">
+              <Image
+                source={
+                  profile?.profileImageUrl
+                    ? { uri: profile.profileImageUrl }
+                    : require("@/assets/images/logo.png")
+                }
+                style={{ width: "100%", height: "100%" }}
+                contentFit="cover"
+              />
+            </View>
+            <TouchableOpacity
+              onPress={handleChangeAvatar}
+              disabled={uploadingAvatar}
+              className="absolute bottom-0 right-0 h-12 w-12 items-center justify-center rounded-full bg-emerald-700 shadow-lg shadow-emerald-700/25"
+            >
+              {uploadingAvatar ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+              )}
+            </TouchableOpacity>
+          </View>
+
+          <Text className="mt-5 text-3xl font-bold text-slate-900">
+            {profile?.farmName || user?.fullName || "Your Farm"}
+          </Text>
+          {profile?.location ? (
+            <View className="mt-2 flex-row items-center gap-2">
+              <MaterialCommunityIcons
+                name="map-marker"
+                size={16}
+                color="#6b7280"
+              />
+              <Text className="text-sm text-gray-500">{profile.location}</Text>
+            </View>
+          ) : null}
+          {user?.email ? (
+            <View className="mt-2 flex-row items-center gap-2">
+              <MaterialCommunityIcons
+                name="email-outline"
+                size={16}
+                color="#6b7280"
+              />
+              <Text className="text-sm text-gray-500">{user.email}</Text>
+            </View>
+          ) : null}
+        </View>
+
+        <View className="mt-8 flex-row gap-3">
+          <View className="flex-1 rounded-[32px] bg-white p-5 shadow-sm shadow-black/5">
+            <View className="h-12 w-12 rounded-2xl bg-emerald-50 items-center justify-center">
+              <MaterialCommunityIcons
+                name="warehouse"
+                size={20}
+                color="#047857"
+              />
+            </View>
+            <Text className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">
+              Inventory
+            </Text>
+            {loadingStats ? (
+              <ActivityIndicator className="mt-3 self-start" color="#047857" />
+            ) : (
+              <Text className="mt-3 text-3xl font-bold text-slate-900">
+                {dashboard?.totalProducts ?? 0}
+              </Text>
+            )}
+            <Text className="mt-1 text-sm text-gray-500">Active Listings</Text>
+          </View>
+
+          <View className="flex-1 rounded-[32px] bg-white p-5 shadow-sm shadow-black/5">
+            <View className="h-12 w-12 rounded-2xl bg-rose-50 items-center justify-center">
+              <MaterialCommunityIcons
+                name="cash-multiple"
+                size={20}
+                color="#9d174d"
+              />
+            </View>
+            <Text className="mt-4 text-xs font-semibold uppercase tracking-[0.25em] text-gray-500">
+              Revenue
+            </Text>
+            {loadingStats ? (
+              <ActivityIndicator className="mt-3 self-start" color="#9d174d" />
+            ) : (
+              <Text className="mt-3 text-3xl font-bold text-slate-900">
+                {format(dashboard?.totalRevenue)}
+              </Text>
+            )}
+            <Text className="mt-1 text-sm text-gray-500">All time</Text>
+          </View>
+        </View>
+
+        <Text className="mt-10 text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
+          Preferences
+        </Text>
+
+        <View className="mt-4">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setPickerVisible(true)}
+            className="flex-row items-center gap-4 rounded-[28px] bg-white px-4 py-4 shadow-sm shadow-black/5"
+          >
+            <View className="h-12 w-12 rounded-2xl bg-emerald-50 items-center justify-center">
+              <MaterialCommunityIcons name="cash-multiple" size={20} color="#047857" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-slate-900">Currency</Text>
+              <Text className="text-xs text-gray-500">Display prices in your currency</Text>
+            </View>
+            <Text className="text-sm font-bold text-emerald-700">{code}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+
+        <Text className="mt-8 text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
+          Account Settings
+        </Text>
+
+        <View className="mt-4 space-y-3">
+          {SETTINGS.map((item) => (
+            <TouchableOpacity
+              key={item.label}
+              activeOpacity={0.8}
+              className="flex-row items-center gap-4 rounded-[28px] bg-white px-4 py-4 shadow-sm shadow-black/5"
+            >
+              <View className="h-12 w-12 rounded-2xl bg-emerald-50 items-center justify-center">
+                <MaterialCommunityIcons
+                  name={item.icon}
+                  size={20}
+                  color="#047857"
+                />
+              </View>
+              <Text className="flex-1 text-base font-semibold text-slate-900">
+                {item.label}
+              </Text>
+              <MaterialCommunityIcons
+                name="chevron-right"
+                size={20}
+                color="#9ca3af"
+              />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <TouchableOpacity
+          onPress={switchToBuyer}
+          className="mt-6 rounded-[28px] bg-emerald-700 px-5 py-4 shadow-sm shadow-emerald-700/10"
+        >
+          <Text className="text-sm font-semibold text-white text-center">
+            Switch to Buyer Account
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          onPress={handleLogout}
+          className="mt-4 flex-row items-center justify-center gap-2 rounded-[28px] border border-red-200 bg-white px-5 py-4 shadow-sm shadow-black/5"
+        >
+          <MaterialCommunityIcons name="logout" size={20} color="#b91c1c" />
+          <Text className="text-sm font-semibold text-red-600">Logout</Text>
+        </TouchableOpacity>
+      </ScrollView>
+
+      <CurrencyPicker visible={pickerVisible} onClose={() => setPickerVisible(false)} />
+    </SafeAreaView>
+  );
 }

@@ -2,240 +2,257 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
-    ScrollView,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useEffect, useState } from "react";
+import { useAuthStore } from "@/store/authStore";
+import { useCartStore } from "@/store/cartStore";
+import { ProductService, type UiProduct, type ProductType } from "@/services/product.service";
+import { useMoney } from "@/lib/useMoney";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const featured = {
-  title: "Heritage Golden Wheat",
-  subtitle: "Sustainable high-yield harvest from the Northern Plains.",
-  tag: "In Season",
-  image: require("@/assets/images/slide2.jpeg"),
-};
+const FALLBACK_IMAGE =
+  "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
 
-const categories = [
-  { id: "grains", label: "Grains", icon: "wheat" },
-  { id: "vegetables", label: "Vegetables", icon: "leaf" },
-  { id: "fruits", label: "Fruits", icon: "fruit-cherries" },
-  { id: "dairy", label: "Dairy", icon: "cheese" },
-];
-
-const recommended = [
-  {
-    id: "r1",
-    title: "Organic Potatoes",
-    price: "$1.20/lb",
-    image: require("@/assets/images/Home.jpeg"),
-  },
-  {
-    id: "r2",
-    title: "Heirloom Carrots",
-    price: "$3.50/pk",
-    image: require("@/assets/images/slide3.jpeg"),
-  },
-  {
-    id: "r3",
-    title: "Tuscan Kale",
-    price: "$2.75/bu",
-    image: require("@/assets/images/Home.jpeg"),
-  },
-  {
-    id: "r4",
-    title: "Fresh Herbs",
-    price: "$1.50/pk",
-    image: require("@/assets/images/slide2.jpeg"),
-  },
+const categories: { id: ProductType; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"] }[] = [
+  { id: "YAM", label: "Yam", icon: "food-drumstick-outline" },
+  { id: "SWEET_POTATO", label: "Sweet Potato", icon: "carrot" },
+  { id: "CASSAVA", label: "Cassava", icon: "food-variant" },
+  { id: "WATER_YAM", label: "Water Yam", icon: "leaf" },
 ];
 
 export default function BuyerHome() {
   const router = useRouter();
+  const addItem = useCartStore((s) => s.addItem);
+  const cartCount = useCartStore((s) => s.items.length);
+  const { format } = useMoney();
+
+  const buyerName =
+    useAuthStore.getState().user?.fullName ||
+    useAuthStore.getState().user?.email ||
+    "";
+
+  const [visited, setVisited] = useState<boolean | null>(null);
+  const [products, setProducts] = useState<UiProduct[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+    const KEY = "buyerHomeVisited";
+    const load = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(KEY);
+        const seen = raw === "true";
+        if (!isMounted) return;
+        setVisited(seen);
+        if (!seen) await AsyncStorage.setItem(KEY, "true");
+      } catch {
+        if (!isMounted) return;
+        setVisited(true);
+      }
+    };
+    load();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        const data = await ProductService.getAllProducts();
+        if (active) setProducts(data);
+      } catch (err) {
+        console.error("Failed to load products", err);
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const featured = products[0];
+  const recommended = products.slice(0, 4);
+
+  const submitSearch = () => {
+    router.push("/(buyer)/marketplace");
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
       <ScrollView showsVerticalScrollIndicator={false}>
         <View className="px-5 pt-4 pb-8">
           <View className="flex-row items-center justify-between">
-
-            <Text className="text-2xl font-bold text-emerald-900">
-              HarvestAI
-            </Text>
-
-            <TouchableOpacity 
-             onPress={() => router.push("/(buyer)/notifications")}
-            className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5">
-              <MaterialCommunityIcons
-                name="bell-outline"
-                size={20}
-                color="#14532d"
-              />
-            </TouchableOpacity>
+            <Text className="text-2xl font-bold text-emerald-900">HarvestAI</Text>
+            <View className="flex-row items-center gap-3">
+              <TouchableOpacity
+                onPress={() => router.push("/(buyer)/cart")}
+                className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
+              >
+                <MaterialCommunityIcons name="cart-outline" size={20} color="#14532d" />
+                {cartCount > 0 && (
+                  <View className="absolute -right-1 -top-1 h-5 w-5 items-center justify-center rounded-full bg-emerald-900">
+                    <Text className="text-[10px] font-bold text-white">{cartCount}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => router.push("/(buyer)/notifications")}
+                className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
+              >
+                <MaterialCommunityIcons name="bell-outline" size={20} color="#14532d" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           <Text className="mt-6 text-sm uppercase text-amber-700 font-semibold">
-            Welcome back
+            {visited ? "Welcome Back" : "Welcome"}
           </Text>
           <Text className="mt-2 text-3xl font-bold text-slate-900">
-            Hello, FreshMarket
+            Hello, {buyerName || "Buyer"}
           </Text>
 
           <View className="mt-4 rounded-3xl bg-white px-4 py-3 shadow-sm shadow-black/5">
             <View className="flex-row items-center gap-3">
-              <MaterialCommunityIcons
-                name="magnify"
-                size={20}
-                color="#6b7280"
-              />
+              <MaterialCommunityIcons name="magnify" size={20} color="#6b7280" />
               <TextInput
-                placeholder="Search premium grains, vegetables, or farms"
+                placeholder="Search fresh produce or farms"
                 placeholderTextColor="#9ca3af"
+                value={search}
+                onChangeText={setSearch}
+                onSubmitEditing={submitSearch}
+                returnKeyType="search"
                 className="flex-1 text-base text-slate-900"
               />
             </View>
           </View>
 
+          {/* Featured */}
           <View className="mt-6 flex-row items-center justify-between">
-            <Text className="text-xl font-bold text-slate-900">
-              Featured Produce
-            </Text>
-            <TouchableOpacity>
-              <Text className="text-sm font-semibold text-emerald-700">
-                See All →
-              </Text>
+            <Text className="text-xl font-bold text-slate-900">Featured Produce</Text>
+            <TouchableOpacity onPress={() => router.push("/(buyer)/marketplace")}>
+              <Text className="text-sm font-semibold text-emerald-700">See All →</Text>
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity
-            onPress={() => router.push("/(buyer)/marketplace")}
-            className="mt-4 overflow-hidden rounded-3xl"
-          >
-            <Image
-              source={featured.image}
-              contentFit="cover"
-              className="h-56 w-full rounded-3xl"
-            />
-            <View className="-mt-28 p-5">
-              <View className="inline-flex items-start rounded-full bg-amber-100 px-3 py-1">
-                <Text className="text-xs font-semibold text-amber-800">
-                  {featured.tag}
-                </Text>
-              </View>
-              <Text className="mt-3 text-2xl font-bold text-white">
-                {featured.title}
-              </Text>
-              <Text className="mt-2 text-sm text-white/90">
-                {featured.subtitle}
-              </Text>
-              <View className="mt-4">
-                <TouchableOpacity className="inline-flex items-center rounded-full bg-white px-4 py-3">
-                  <MaterialCommunityIcons
-                    name="shopping"
-                    size={18}
-                    color="#14532d"
-                  />
-                  <Text className="ml-3 font-semibold text-emerald-900">
-                    Order Now
-                  </Text>
-                </TouchableOpacity>
-              </View>
+          {loading ? (
+            <View className="mt-8 items-center justify-center py-10">
+              <ActivityIndicator size="large" color="#047857" />
             </View>
-          </TouchableOpacity>
-
-          <Text className="mt-6 text-lg font-semibold text-slate-900">
-            Quick Categories
-          </Text>
-          <View className="mt-4 flex-row items-center justify-between">
-            {categories.map((cat) => (
-              <TouchableOpacity key={cat.id} className="items-center">
-                <View className="h-14 w-14 items-center justify-center rounded-full bg-emerald-50">
-                  <MaterialCommunityIcons
-                    name={cat.icon as any}
-                    size={20}
-                    color="#166534"
-                  />
+          ) : featured ? (
+            <TouchableOpacity
+              onPress={() => router.push(`/(buyer)/products/${featured.id}`)}
+              className="mt-4 overflow-hidden rounded-3xl"
+            >
+              <Image
+                source={{ uri: featured.images?.[0] || FALLBACK_IMAGE }}
+                contentFit="cover"
+                className="h-56 w-full rounded-3xl bg-slate-200"
+              />
+              <View className="-mt-28 p-5">
+                <Text className="mt-3 text-2xl font-bold text-white">{featured.name}</Text>
+                <Text className="mt-2 text-sm text-white/90" numberOfLines={2}>
+                  {featured.description}
+                </Text>
+                <View className="mt-4 flex-row">
+                  <View className="flex-row items-center rounded-full bg-white px-4 py-3">
+                    <MaterialCommunityIcons name="shopping" size={18} color="#14532d" />
+                    <Text className="ml-2 font-semibold text-emerald-900">
+                      {format(featured.pricePerKg)}/kg
+                    </Text>
+                  </View>
                 </View>
-                <Text className="mt-2 text-sm text-slate-700">{cat.label}</Text>
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <View className="mt-4 rounded-3xl bg-white p-8 items-center">
+              <MaterialCommunityIcons name="sprout-outline" size={40} color="#9ca3af" />
+              <Text className="mt-3 text-sm text-slate-500 text-center">
+                No produce listed yet. Check back soon.
+              </Text>
+            </View>
+          )}
+
+          {/* Categories */}
+          <Text className="mt-6 text-lg font-semibold text-slate-900">Browse Crops</Text>
+          <View className="mt-4 flex-row flex-wrap">
+            {categories.map((cat) => (
+              <TouchableOpacity
+                key={cat.id}
+                onPress={() => router.push("/(buyer)/marketplace")}
+                className="items-center mb-2"
+                style={{ width: "25%" }}
+              >
+                <View className="h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
+                  <MaterialCommunityIcons name={cat.icon} size={24} color="#166534" />
+                </View>
+                <Text className="mt-2 text-sm text-slate-700 text-center">{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
 
-          <Text className="mt-6 text-base font-semibold text-amber-700">
-            Recommended for You
-          </Text>
-          <View
-            className="mt-4"
-            style={{
-              flexDirection: "row",
-              flexWrap: "wrap",
-              justifyContent: "space-between",
-            }}
-          >
-            {recommended.map((p) => (
+          {/* Recommended */}
+          {recommended.length > 0 && (
+            <>
+              <Text className="mt-6 text-base font-semibold text-amber-700">
+                Recommended for You
+              </Text>
               <View
-                key={p.id}
-                className="rounded-[18px] bg-white p-3 shadow-sm shadow-black/5 relative"
-                style={{ width: "48%", marginBottom: 16 }}
+                className="mt-4"
+                style={{ flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between" }}
               >
-                <View className="relative">
-                  <Image
-                    source={p.image}
-                    contentFit="cover"
-                    className="h-28 w-full rounded-2xl bg-slate-100"
-                  />
-                  <TouchableOpacity className="absolute top-2 right-2 h-8 w-8 items-center justify-center rounded-full bg-white shadow-sm">
-                    <MaterialCommunityIcons
-                      name="heart-outline"
-                      size={16}
-                      color="#14532d"
+                {recommended.map((p) => (
+                  <TouchableOpacity
+                    key={p.id}
+                    onPress={() => router.push(`/(buyer)/products/${p.id}`)}
+                    className="rounded-[18px] bg-white p-3 shadow-sm shadow-black/5"
+                    style={{ width: "48%", marginBottom: 16 }}
+                  >
+                    <Image
+                      source={{ uri: p.images?.[0] || FALLBACK_IMAGE }}
+                      contentFit="cover"
+                      className="h-28 w-full rounded-2xl bg-slate-100"
                     />
+                    <Text className="mt-3 font-semibold text-slate-900" numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    <Text className="text-sm text-emerald-900 mt-1">
+                      {format(p.pricePerKg)}/kg
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => addItem(p, 1)}
+                      className="mt-3 rounded-xl bg-emerald-900 py-2 items-center justify-center"
+                    >
+                      <Text className="text-sm font-semibold text-white">Add to Cart</Text>
+                    </TouchableOpacity>
                   </TouchableOpacity>
-                </View>
-
-                <Text
-                  className="mt-3 font-semibold text-slate-900"
-                  numberOfLines={2}
-                >
-                  {p.title}
-                </Text>
-                <Text className="text-sm text-emerald-900 mt-1">{p.price}</Text>
-
-                <View className="mt-2 h-2 w-full rounded-full bg-slate-100">
-                  <View
-                    className="h-full rounded-full bg-emerald-700"
-                    style={{ width: "32%" }}
-                  />
-                </View>
-
-                <TouchableOpacity className="mt-3 rounded-md bg-emerald-900 py-2 items-center justify-center">
-                  <Text className="text-sm font-semibold text-white">
-                    Add to Cart
-                  </Text>
-                </TouchableOpacity>
+                ))}
               </View>
-            ))}
-          </View>
+            </>
+          )}
 
-          <View className="mt-6 rounded-2xl bg-emerald-900 p-4 shadow-sm shadow-black/10">
-            <Text className="text-lg font-semibold text-white">
-              Market Insights
-            </Text>
+          <View className="mt-2 rounded-2xl bg-emerald-900 p-5 shadow-sm shadow-black/10">
+            <Text className="text-lg font-semibold text-white">Market Insights</Text>
             <Text className="mt-2 text-sm text-emerald-100">
-              Grain prices are stabilizing. AI models predict a 5% decrease in
-              wheat costs over the next 14 days.
+              Explore AI-powered price predictions and demand forecasts to time your purchases.
             </Text>
-            <View className="mt-4 h-24 rounded-md bg-emerald-800/30" />
+            <TouchableOpacity
+              onPress={() => router.push("/(ai)/insight")}
+              className="mt-4 self-start rounded-full bg-white px-4 py-2"
+            >
+              <Text className="text-sm font-semibold text-emerald-900">Open AI Insights →</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity className="fixed right-6 bottom-28 h-12 w-12 items-center justify-center rounded-full bg-emerald-900 shadow-xl">
-            <MaterialCommunityIcons
-              name="chat-outline"
-              size={20}
-              color="#fff"
-            />
-          </TouchableOpacity>
         </View>
       </ScrollView>
     </SafeAreaView>
