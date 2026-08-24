@@ -4,12 +4,14 @@ import { useRouter } from "expo-router";
 import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useCartStore } from "@/store/cartStore";
+import { useMoney } from "@/lib/useMoney";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
 
 export default function Cart() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const items = useCartStore((s) => s.items);
   const setQuantity = useCartStore((s) => s.setQuantity);
@@ -87,11 +89,6 @@ export default function Cart() {
                             <Text className="text-lg font-semibold text-slate-900">
                               {product.name}
                             </Text>
-                            <View className="mt-2 self-start rounded-full bg-emerald-100 px-3 py-1">
-                              <Text className="text-xs font-semibold text-emerald-700">
-                                {product.perishable ? "Air Freight" : "Sea Freight"}
-                              </Text>
-                            </View>
                             <Text className="mt-2 text-xs text-slate-400">
                               {product.seller}
                             </Text>
@@ -105,10 +102,10 @@ export default function Cart() {
                       <View className="mt-5 flex-row items-center justify-between">
                         <View>
                           <Text className="text-2xl font-bold text-emerald-900">
-                            ${(product.pricePerKg * quantityKg).toFixed(2)}
+                            {format(product.pricePerKg * quantityKg)}
                           </Text>
                           <Text className="text-xs text-slate-500">
-                            ${product.pricePerKg.toFixed(2)}/kg · {quantityKg}kg
+                            {format(product.pricePerKg)}/kg · {quantityKg}kg
                           </Text>
                         </View>
 
@@ -149,12 +146,12 @@ export default function Cart() {
                 <View className="flex-row items-center justify-between pb-4">
                   <Text className="text-base text-slate-500">Subtotal</Text>
                   <Text className="text-base font-semibold text-slate-900">
-                    ${subtotal.toFixed(2)}
+                    {format(subtotal)}
                   </Text>
                 </View>
                 <View className="h-px bg-slate-100" />
                 <Text className="mt-4 text-xs text-slate-400">
-                  Shipping and tax are calculated at checkout based on freight mode and destination.
+                  Shipping and tax are calculated at checkout based on your delivery destination.
                 </Text>
               </View>
 

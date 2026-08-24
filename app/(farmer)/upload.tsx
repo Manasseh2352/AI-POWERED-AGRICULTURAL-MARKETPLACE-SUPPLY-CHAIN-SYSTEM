@@ -1,4 +1,5 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
+import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
@@ -12,20 +13,25 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProductService, type ProductType } from "@/services/product.service";
+import { chooseImageSource } from "@/lib/imagePick";
+import { useMoney } from "@/lib/useMoney";
+
+const MAX_PHOTOS = 5;
 
 const CROPS: {
   id: ProductType;
   label: string;
   icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"];
-  freight: string;
 }[] = [
-  { id: "YAM", label: "Yam", icon: "food-drumstick-outline", freight: "Sea Freight" },
-  { id: "TOMATO", label: "Tomato", icon: "fruit-cherries", freight: "Air Freight" },
-  { id: "POTATO", label: "Potato", icon: "sprout", freight: "Sea Freight" },
+  { id: "YAM", label: "Yam", icon: "food-drumstick-outline" },
+  { id: "SWEET_POTATO", label: "Sweet Potato", icon: "carrot" },
+  { id: "CASSAVA", label: "Cassava", icon: "food-variant" },
+  { id: "WATER_YAM", label: "Water Yam", icon: "leaf" },
 ];
 
 export default function Upload() {
   const router = useRouter();
+  const { code, symbol, toUsd } = useMoney();
 
   const [productName, setProductName] = useState<ProductType | null>(null);
   const [quantityKg, setQuantityKg] = useState("");
@@ -33,7 +39,19 @@ export default function Upload() {
   const [location, setLocation] = useState("");
   const [state, setState] = useState("");
   const [description, setDescription] = useState("");
+  const [images, setImages] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+
+  const handleAddPhoto = async () => {
+    if (images.length >= MAX_PHOTOS) return;
+    const uri = await chooseImageSource();
+    if (!uri) return;
+    setImages((prev) => (prev.length >= MAX_PHOTOS ? prev : [...prev, uri]));
+  };
+
+  const removePhoto = (uri: string) => {
+    setImages((prev) => prev.filter((u) => u !== uri));
+  };
 
   const handleSubmit = async () => {
     if (!productName) {
@@ -45,21 +63,33 @@ export default function Upload() {
       Alert.alert("Invalid quantity", "Enter a quantity in kilograms greater than zero.");
       return;
     }
-    const priceNum = unitPrice.trim() ? Number(unitPrice) : undefined;
-    if (priceNum !== undefined && (!Number.isFinite(priceNum) || priceNum <= 0)) {
+    // Price is entered in the chosen display currency; convert to the USD base
+    // the backend stores. Identity when the chosen currency is USD.
+    const enteredPrice = unitPrice.trim() ? Number(unitPrice) : undefined;
+    if (enteredPrice !== undefined && (!Number.isFinite(enteredPrice) || enteredPrice <= 0)) {
       Alert.alert("Invalid price", "Price per kg must be a number greater than zero, or leave it blank for market pricing.");
       return;
     }
+    const priceUsd = enteredPrice !== undefined ? toUsd(enteredPrice) : undefined;
 
     setSubmitting(true);
     try {
+      // Upload any attached photos first, then create the listing with their URLs.
+      let uploadedUrls: string[] = [];
+      if (images.length) {
+        uploadedUrls = await Promise.all(
+          images.map((uri) => ProductService.uploadProductImage(uri))
+        );
+      }
+
       await ProductService.createProduct({
         productName,
         quantityKg: qty,
-        unitPriceOverride: priceNum,
+        unitPriceOverride: priceUsd,
         location: location.trim() || undefined,
         state: state.trim() || undefined,
         description: description.trim() || undefined,
+        images: uploadedUrls.length ? uploadedUrls : undefined,
       });
       Alert.alert("Produce listed", "Your produce is now live on the marketplace.");
       router.replace("/(farmer)/inventory");
@@ -69,7 +99,8 @@ export default function Upload() {
     }
   };
 
-  const selectedFreight = CROPS.find((c) => c.id === productName)?.freight;
+  const pricePreviewUsd =
+    unitPrice.trim() && code !== "USD" ? toUsd(Number(unitPrice) || 0) : null;
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
@@ -95,14 +126,15 @@ export default function Upload() {
 
           {/* CROP PICKER */}
           <Text className="mt-8 text-base font-semibold text-slate-900">Which crop?</Text>
-          <View className="mt-4 flex-row gap-3">
+          <View className="mt-4 flex-row flex-wrap justify-between">
             {CROPS.map((crop) => {
               const active = productName === crop.id;
               return (
                 <TouchableOpacity
                   key={crop.id}
                   onPress={() => setProductName(crop.id)}
-                  className={`flex-1 items-center rounded-3xl border px-3 py-5 ${
+                  style={{ width: "48%" }}
+                  className={`items-center rounded-3xl border px-3 py-5 mb-3 ${
                     active ? "border-emerald-700 bg-emerald-50" : "border-slate-200 bg-white"
                   }`}
                 >
@@ -129,20 +161,43 @@ export default function Upload() {
             })}
           </View>
 
-          {selectedFreight ? (
-            <View className="mt-4 self-start rounded-full bg-amber-100 px-4 py-2">
-              <View className="flex-row items-center gap-2">
-                <MaterialCommunityIcons
-                  name={selectedFreight === "Air Freight" ? "airplane" : "ferry"}
-                  size={14}
-                  color="#92400e"
+          {/* PHOTOS */}
+          <Text className="mt-8 text-base font-semibold text-slate-900">Photos</Text>
+          <Text className="mt-1 text-xs text-slate-400">
+            Add up to {MAX_PHOTOS} photos from your camera or gallery — buyers see these first.
+          </Text>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            className="mt-4"
+            contentContainerStyle={{ gap: 12, paddingRight: 4 }}
+          >
+            {images.map((uri) => (
+              <View key={uri} className="relative">
+                <Image
+                  source={{ uri }}
+                  style={{ width: 96, height: 96, borderRadius: 20 }}
+                  contentFit="cover"
                 />
-                <Text className="text-xs font-semibold text-amber-800">
-                  Recommended: {selectedFreight}
-                </Text>
+                <TouchableOpacity
+                  onPress={() => removePhoto(uri)}
+                  className="absolute -right-2 -top-2 h-7 w-7 items-center justify-center rounded-full bg-rose-600"
+                >
+                  <MaterialCommunityIcons name="close" size={16} color="#fff" />
+                </TouchableOpacity>
               </View>
-            </View>
-          ) : null}
+            ))}
+            {images.length < MAX_PHOTOS ? (
+              <TouchableOpacity
+                onPress={handleAddPhoto}
+                disabled={submitting}
+                className="h-24 w-24 items-center justify-center rounded-[20px] border-2 border-dashed border-emerald-300 bg-emerald-50"
+              >
+                <MaterialCommunityIcons name="camera-plus-outline" size={26} color="#047857" />
+                <Text className="mt-1 text-xs font-semibold text-emerald-700">Add</Text>
+              </TouchableOpacity>
+            ) : null}
+          </ScrollView>
 
           {/* DETAILS */}
           <Text className="mt-8 text-base font-semibold text-slate-900">Listing Details</Text>
@@ -160,7 +215,7 @@ export default function Upload() {
             </View>
             <View>
               <Text className="text-sm font-semibold text-slate-700 mb-2">
-                Price per kg (USD)
+                Price per kg ({symbol} {code})
               </Text>
               <TextInput
                 value={unitPrice}
@@ -170,6 +225,11 @@ export default function Upload() {
                 keyboardType="numeric"
                 className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
               />
+              {pricePreviewUsd !== null ? (
+                <Text className="mt-2 text-xs font-semibold text-emerald-700">
+                  ≈ ${pricePreviewUsd.toFixed(2)} USD
+                </Text>
+              ) : null}
               <Text className="mt-2 text-xs text-slate-400">
                 If left blank, the system prices your produce from the latest market rate.
               </Text>

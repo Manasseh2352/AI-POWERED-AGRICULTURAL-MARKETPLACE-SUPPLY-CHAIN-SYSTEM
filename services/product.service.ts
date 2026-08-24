@@ -1,7 +1,17 @@
 import { apiFetch } from "@/lib/axios";
 
-// Restricted product types supported by the marketplace.
-export type ProductType = "YAM" | "TOMATO" | "POTATO";
+// Restricted product types supported by the marketplace: non-perishable tubers.
+export type ProductType = "YAM" | "SWEET_POTATO" | "CASSAVA" | "WATER_YAM";
+
+// Human-readable labels for each tuber type. Used for display names and the
+// description fallback, since the raw enum (e.g. SWEET_POTATO) isn't
+// presentation-ready.
+export const PRODUCT_LABELS: Record<ProductType, string> = {
+  YAM: "Yam",
+  SWEET_POTATO: "Sweet Potato",
+  CASSAVA: "Cassava",
+  WATER_YAM: "Water Yam",
+};
 
 // Normalized product shape the UI consumes. The backend returns Prisma
 // `Product` rows (Decimal fields serialize to strings, productName is an enum,
@@ -18,27 +28,20 @@ export type UiProduct = {
   seller: string;
   location: string | null;
   destinationCountry: string | null;
-  perishable: boolean;
 };
-
-const titleCase = (s: string) =>
-  s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
-
-// Only tomatoes are treated as perishable (air freight); yam & potato are
-// shelf-stable (sea freight). Used for transport recommendations in the UI.
-const isPerishable = (type: string) => String(type).toUpperCase() === "TOMATO";
 
 export function mapProduct(p: any): UiProduct {
   const type = String(p?.productName ?? "").toUpperCase() as ProductType;
+  const label = PRODUCT_LABELS[type] ?? "Produce";
   const qty = Number(p?.quantityKg ?? 0);
   return {
     id: p?.id,
     productName: type,
-    name: titleCase(p?.productName ?? "Produce"),
+    name: label,
     description:
       p?.description && String(p.description).trim().length > 0
         ? p.description
-        : `Fresh ${titleCase(p?.productName ?? "produce")} — ${qty.toLocaleString()}kg available`,
+        : `Fresh ${label} — ${qty.toLocaleString()}kg available`,
     pricePerKg: Number(p?.pricePerKg ?? 0),
     quantityKg: qty,
     images: Array.isArray(p?.images) ? p.images : [],
@@ -48,7 +51,6 @@ export function mapProduct(p: any): UiProduct {
       "Verified Farmer",
     location: p?.location ?? p?.farmerProfile?.location ?? null,
     destinationCountry: p?.destinationCountry ?? null,
-    perishable: isPerishable(type),
   };
 }
 
@@ -94,5 +96,24 @@ export const ProductService = {
       body: JSON.stringify(data),
     });
     return mapProduct(res?.product);
+  },
+
+  // Upload a single product photo (local image URI) to ImageKit via the
+  // backend and return its hosted URL. Callers collect these URLs and pass them
+  // as `images` to createProduct.
+  uploadProductImage: async (uri: string): Promise<string> => {
+    const name = uri.split("/").pop() || `product-${Date.now()}.jpg`;
+    const ext = (/\.(\w+)$/.exec(name)?.[1] || "jpg").toLowerCase();
+    const type =
+      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+    const form = new FormData();
+    form.append("image", { uri, name, type } as any);
+
+    const res = await apiFetch("/farmer/product-image", {
+      method: "POST",
+      body: form,
+    });
+    return res?.url as string;
   },
 };

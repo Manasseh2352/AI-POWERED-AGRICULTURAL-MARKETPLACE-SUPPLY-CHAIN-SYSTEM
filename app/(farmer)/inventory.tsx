@@ -136,11 +136,6 @@ export default function Inventory() {
                     <View className="absolute top-3 left-3 bg-emerald-100 rounded-full px-3 py-1">
                       <Text className="text-xs font-bold text-emerald-700">Listed</Text>
                     </View>
-                    <View className="absolute top-3 right-3 bg-white/90 rounded-full px-3 py-1">
-                      <Text className="text-xs font-bold text-slate-700">
-                        {item.perishable ? "Air Freight" : "Sea Freight"}
-                      </Text>
-                    </View>
                   </View>
 
                   <View className="p-4">

@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
+import { useMoney } from "@/lib/useMoney";
 
 const num = (v: any) => {
   const n = Number(v);
@@ -25,7 +26,7 @@ const orderItems = (order: any): any[] => {
   return groups.flatMap((g: any) => g.items ?? []);
 };
 
-// Farmer revenue = sum of produce line totals (excludes buyer-side freight/tax).
+// Farmer revenue = sum of produce line totals (excludes buyer-side shipping/tax).
 const produceRevenue = (order: any) =>
   orderItems(order).reduce((s, it) => s + num(it.lineTotal), 0);
 
@@ -50,6 +51,7 @@ const STATUS_LABEL: Record<string, string> = {
 
 export default function Earnings() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -77,7 +79,6 @@ export default function Earnings() {
   }, []);
 
   const stats = useMemo(() => {
-    const currency = orders[0]?.currency ?? "USD";
     let earned = 0;
     let pending = 0;
     let unitsSold = 0;
@@ -94,14 +95,10 @@ export default function Earnings() {
         pending += rev;
       }
     }
-    return { currency, earned, pending, unitsSold, paidCount };
+    return { earned, pending, unitsSold, paidCount };
   }, [orders]);
 
-  const money = (n: number) =>
-    `${stats.currency === "USD" ? "$" : ""}${n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const money = (n: number) => format(n);
 
   const recent = useMemo(
     () => orders.filter((o) => o.status !== "CANCELLED").slice(0, 12),

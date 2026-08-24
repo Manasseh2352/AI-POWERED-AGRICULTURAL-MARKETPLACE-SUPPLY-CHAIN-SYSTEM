@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ProductService, type UiProduct } from "@/services/product.service";
 import { useCartStore } from "@/store/cartStore";
+import { useMoney } from "@/lib/useMoney";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800";
@@ -28,6 +29,7 @@ export default function ProductDetail() {
 
   const addItem = useCartStore((s) => s.addItem);
   const cartCount = useCartStore((s) => s.items.length);
+  const { format } = useMoney();
 
   useEffect(() => {
     let active = true;
@@ -132,32 +134,14 @@ export default function ProductDetail() {
             </View>
             <View className="items-end">
               <Text className="text-3xl font-bold text-emerald-900">
-                ${product.pricePerKg.toFixed(2)}
+                {format(product.pricePerKg)}
               </Text>
               <Text className="text-xs text-slate-500">per kg</Text>
             </View>
           </View>
 
-          {/* Freight + stock facts */}
+          {/* Stock facts */}
           <View className="mt-4 flex-row gap-3">
-            <View className="flex-1 rounded-3xl bg-slate-50 px-4 py-5">
-              <Text className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
-                Transport
-              </Text>
-              <View className="mt-3 flex-row items-center gap-2">
-                <MaterialCommunityIcons
-                  name={product.perishable ? "airplane" : "ferry"}
-                  size={20}
-                  color="#0f766e"
-                />
-                <Text className="text-lg font-bold text-slate-900">
-                  {product.perishable ? "Air" : "Sea"}
-                </Text>
-              </View>
-              <Text className="text-xs text-slate-500">
-                {product.perishable ? "Perishable" : "Shelf-stable"}
-              </Text>
-            </View>
             <View className="flex-1 rounded-3xl bg-slate-50 px-4 py-5">
               <Text className="text-xs font-semibold uppercase tracking-[0.15em] text-slate-500">
                 Available
@@ -202,7 +186,7 @@ export default function ProductDetail() {
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-semibold text-slate-600">Quantity (kg)</Text>
               <Text className="text-sm font-semibold text-emerald-800">
-                Subtotal ${lineTotal.toFixed(2)}
+                Subtotal {format(lineTotal)}
               </Text>
             </View>
             <View className="mt-4 flex-row items-center justify-between gap-4">

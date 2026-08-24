@@ -6,8 +6,13 @@ export const apiFetch = async (endpoint: string, options: RequestInit = {}) => {
   const token = useAuthStore.getState().token;
 
   // Normalize headers to a plain object so we can safely add Authorization.
+  // For FormData bodies we must NOT set Content-Type — fetch has to set it
+  // itself so it can include the multipart boundary (used by image uploads).
+  const isFormData =
+    typeof FormData !== 'undefined' && options.body instanceof FormData;
+
   const mergedHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(options.headers as any),
   };
 

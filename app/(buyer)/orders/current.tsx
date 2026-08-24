@@ -11,6 +11,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
+import { useMoney } from "@/lib/useMoney";
 
 const num = (v: any) => {
   const n = Number(v);
@@ -46,6 +47,7 @@ const formatDate = (iso?: string) => {
 
 export default function CurrentOrders() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -130,12 +132,8 @@ export default function CurrentOrders() {
                   const paid =
                     Array.isArray(order.payments) &&
                     order.payments.some((p: any) => p?.status === "PAID");
-                  const currency = order.currency ?? "USD";
                   const total = num(order.totalAmount);
-                  const totalLabel = `${currency === "USD" ? "$" : ""}${total.toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                  })}`;
+                  const totalLabel = format(total);
 
                   return (
                     <View

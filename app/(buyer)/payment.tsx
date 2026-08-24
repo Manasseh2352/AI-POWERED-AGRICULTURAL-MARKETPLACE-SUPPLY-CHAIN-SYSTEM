@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
 import { PaymentService, type PaymentMethod } from "@/services/payment.service";
+import { useMoney } from "@/lib/useMoney";
 
 type PaymentOption = {
   id: PaymentMethod;
@@ -57,6 +58,7 @@ export default function Payment() {
   const [loadingOrder, setLoadingOrder] = useState(true);
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CARD");
   const [paying, setPaying] = useState(false);
+  const { format } = useMoney();
 
   const loadOrder = async () => {
     if (!orderId) {
@@ -83,28 +85,17 @@ export default function Payment() {
     return order.shipmentGroups.flatMap((g: any) => g.items ?? []);
   }, [order]);
 
-  const currency = order?.currency ?? "USD";
   const subtotal = num(order?.subtotalAmount);
   const tax = num(order?.taxAmount);
   const shipping = num(order?.shippingAmount);
   const total = num(order?.totalAmount);
 
-  const hasPerishable = items.some(
-    (it: any) => String(it?.product?.productName).toUpperCase() === "TOMATO"
-  );
-  const hasNonPerishable = items.some(
-    (it: any) => String(it?.product?.productName).toUpperCase() !== "TOMATO"
-  );
-
   const alreadyPaid =
     Array.isArray(order?.payments) &&
     order.payments.some((p: any) => p?.status === "PAID");
 
-  const fmt = (n: number) =>
-    `${currency === "USD" ? "$" : ""}${n.toLocaleString(undefined, {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  // Order amounts are stored in USD; format() renders them in the chosen currency.
+  const fmt = format;
 
   const handlePayment = async () => {
     if (!orderId) {
@@ -151,8 +142,6 @@ export default function Payment() {
       </SafeAreaView>
     );
   }
-
-  const recommendedMode = hasPerishable ? "Air Freight" : "Sea Freight";
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
@@ -229,7 +218,7 @@ export default function Payment() {
               <Text className="text-sm font-semibold text-slate-900">{fmt(subtotal)}</Text>
             </View>
             <View className="flex-row items-center justify-between py-1">
-              <Text className="text-sm text-slate-500">Freight ({recommendedMode})</Text>
+              <Text className="text-sm text-slate-500">Shipping</Text>
               <Text className="text-sm font-semibold text-slate-900">{fmt(shipping)}</Text>
             </View>
             <View className="flex-row items-center justify-between py-1">
@@ -240,44 +229,6 @@ export default function Payment() {
             <View className="flex-row items-center justify-between py-1">
               <Text className="text-base font-bold text-slate-900">Total</Text>
               <Text className="text-xl font-bold text-emerald-800">{fmt(total)}</Text>
-            </View>
-          </View>
-
-          {/* FREIGHT RECOMMENDATION */}
-          <View className="mt-6 rounded-[28px] border-2 border-slate-100 bg-white p-5">
-            <View className="flex-row items-center gap-4">
-              <View
-                className={`h-14 w-14 rounded-3xl items-center justify-center ${
-                  hasPerishable ? "bg-sky-100" : "bg-blue-100"
-                }`}
-              >
-                <MaterialCommunityIcons
-                  name={hasPerishable ? "airplane" : "ferry"}
-                  size={24}
-                  color={hasPerishable ? "#0369a1" : "#1d4ed8"}
-                />
-              </View>
-              <View className="flex-1">
-                <Text className="text-base font-bold text-slate-900">{recommendedMode}</Text>
-                <Text className="mt-0.5 text-sm text-slate-500">
-                  {hasPerishable
-                    ? "Temperature-controlled cargo for perishable produce."
-                    : "Cost-effective bulk container freight."}
-                </Text>
-              </View>
-            </View>
-            <View className="mt-4 flex-row items-center gap-2">
-              <View className="rounded-full bg-emerald-900 px-3 py-1 flex-row items-center gap-1">
-                <MaterialCommunityIcons name="star-four-points" size={12} color="#fff" />
-                <Text className="text-xs font-bold uppercase tracking-[0.15em] text-white">
-                  AI Recommended
-                </Text>
-              </View>
-              {hasPerishable && hasNonPerishable && (
-                <Text className="text-xs text-slate-500 flex-1">
-                  Mixed cart — routed by fastest safe mode.
-                </Text>
-              )}
             </View>
           </View>
 

@@ -1,5 +1,6 @@
 import Loading from "@/components/ui/Loading";
 import { useAuthStore } from "@/store/authStore";
+import { useCurrencyStore } from "@/store/currencyStore";
 import { useLoadingStore } from "@/store/loadingStore";
 import { Image } from "expo-image";
 import { Stack, useRouter, useSegments } from "expo-router";
@@ -20,6 +21,9 @@ export default function RootLayout() {
   useEffect(() => {
     // Restore token + user from secure storage before we decide where to route.
     hydrate();
+    // Restore the saved currency preference + cached exchange rates, then kick
+    // a background refresh of live rates if they're stale.
+    useCurrencyStore.getState().hydrate();
   }, [hydrate]);
 
   // App is ready once auth has been restored from storage.

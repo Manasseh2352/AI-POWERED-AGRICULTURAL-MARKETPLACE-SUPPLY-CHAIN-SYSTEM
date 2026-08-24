@@ -1,4 +1,5 @@
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { AuthService } from "@/services/auth.service";
@@ -8,6 +9,7 @@ export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handleLogin = async () => {
@@ -67,13 +69,22 @@ export default function Login() {
       />
 
       {/* PASSWORD */}
-      <TextInput
-        placeholder="Password"
-        secureTextEntry
-        value={password}
-        onChangeText={setPassword}
-        className="border border-gray-300 rounded-xl px-4 py-3 mb-4 text-black"
-      />
+      <View className="flex-row items-center border border-gray-300 rounded-xl px-4 mb-4">
+        <TextInput
+          placeholder="Password"
+          secureTextEntry={!showPassword}
+          value={password}
+          onChangeText={setPassword}
+          className="flex-1 py-3 text-black"
+        />
+        <TouchableOpacity onPress={() => setShowPassword((s) => !s)} hitSlop={8}>
+          <MaterialCommunityIcons
+            name={showPassword ? "eye-off-outline" : "eye-outline"}
+            size={22}
+            color="#6b7280"
+          />
+        </TouchableOpacity>
+      </View>
 
       {/* LOGIN BUTTON */}
       <TouchableOpacity

@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useEffect, useState, useCallback, useMemo } from "react";
 import { ProductService, type UiProduct } from "@/services/product.service";
 import { useCartStore } from "@/store/cartStore";
+import { useMoney } from "@/lib/useMoney";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
@@ -28,7 +29,7 @@ function ProductCard({
   onAdd: (p: UiProduct) => void;
 }) {
   const imageUrl = product.images?.[0] || FALLBACK_IMAGE;
-  const perishable = product.perishable;
+  const { format } = useMoney();
 
   return (
     <View className="mb-4 rounded-[32px] bg-white shadow-sm shadow-black/5 overflow-hidden">
@@ -37,22 +38,6 @@ function ProductCard({
         className="relative h-56 w-full bg-gray-100"
       >
         <Image source={{ uri: imageUrl }} contentFit="cover" className="h-full w-full" />
-
-        {/* Transport mode pill */}
-        <View
-          className={`absolute right-4 top-4 rounded-full px-3 py-1 flex-row items-center gap-1 ${
-            perishable ? "bg-sky-600" : "bg-blue-700"
-          }`}
-        >
-          <MaterialCommunityIcons
-            name={perishable ? "airplane" : "ferry"}
-            size={12}
-            color="#fff"
-          />
-          <Text className="text-xs font-bold text-white">
-            {perishable ? "Air" : "Sea"}
-          </Text>
-        </View>
       </TouchableOpacity>
 
       <View className="p-5">
@@ -64,7 +49,7 @@ function ProductCard({
         <View className="mt-4 flex-row items-end justify-between">
           <View>
             <Text className="text-xl font-bold text-slate-900">
-              ${product.pricePerKg.toFixed(2)}
+              {format(product.pricePerKg)}
             </Text>
             <Text className="text-xs text-slate-500">per kg</Text>
           </View>
@@ -141,9 +126,6 @@ export default function Marketplace() {
     );
   }, [products, search]);
 
-  const perishableProducts = filtered.filter((p) => p.perishable);
-  const nonPerishableProducts = filtered.filter((p) => !p.perishable);
-
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
       {/* STICKY HEADER */}
@@ -206,65 +188,12 @@ export default function Marketplace() {
             </View>
           )}
 
-          {/* ── PERISHABLE SECTION ── */}
-          {perishableProducts.length > 0 && (
-            <View className="px-2 mb-2">
-              <View className="flex-row items-center gap-3 mb-4">
-                <View className="flex-row items-center gap-2 bg-rose-100 rounded-full px-4 py-2">
-                  <MaterialCommunityIcons name="snowflake" size={16} color="#be123c" />
-                  <Text className="text-sm font-bold text-rose-700 uppercase tracking-wider">
-                    Perishable
-                  </Text>
-                </View>
-                <View className="flex-1 h-px bg-rose-200" />
-                <View className="flex-row items-center gap-1 bg-sky-50 border border-sky-200 rounded-full px-3 py-1">
-                  <MaterialCommunityIcons name="airplane" size={13} color="#0369a1" />
-                  <Text className="text-xs font-semibold text-sky-700">Air Freight</Text>
-                </View>
-              </View>
-
-              <View className="mb-4 rounded-2xl bg-rose-50 border border-rose-100 px-4 py-3 flex-row items-start gap-3">
-                <MaterialCommunityIcons name="information-outline" size={16} color="#be123c" />
-                <Text className="text-xs text-rose-700 flex-1 leading-5">
-                  These items require temperature-controlled air freight to preserve freshness during transit.
-                </Text>
-              </View>
-
-              {perishableProducts.map((product) => (
-                <ProductCard key={product.id} product={product} router={router} onAdd={handleAdd} />
-              ))}
-            </View>
-          )}
-
-          {/* ── NON-PERISHABLE SECTION ── */}
-          {nonPerishableProducts.length > 0 && (
-            <View className="px-2 mt-6 mb-2">
-              <View className="flex-row items-center gap-3 mb-4">
-                <View className="flex-row items-center gap-2 bg-amber-100 rounded-full px-4 py-2">
-                  <MaterialCommunityIcons name="package-variant-closed" size={16} color="#92400e" />
-                  <Text className="text-sm font-bold text-amber-800 uppercase tracking-wider">
-                    Non-Perishable
-                  </Text>
-                </View>
-                <View className="flex-1 h-px bg-amber-200" />
-                <View className="flex-row items-center gap-1 bg-blue-50 border border-blue-200 rounded-full px-3 py-1">
-                  <MaterialCommunityIcons name="ferry" size={13} color="#1d4ed8" />
-                  <Text className="text-xs font-semibold text-blue-700">Sea Freight</Text>
-                </View>
-              </View>
-
-              <View className="mb-4 rounded-2xl bg-amber-50 border border-amber-100 px-4 py-3 flex-row items-start gap-3">
-                <MaterialCommunityIcons name="information-outline" size={16} color="#92400e" />
-                <Text className="text-xs text-amber-800 flex-1 leading-5">
-                  Bulk, shelf-stable produce shipped cost-effectively via sea freight containers.
-                </Text>
-              </View>
-
-              {nonPerishableProducts.map((product) => (
-                <ProductCard key={product.id} product={product} router={router} onAdd={handleAdd} />
-              ))}
-            </View>
-          )}
+          {/* ── PRODUCT LIST ── */}
+          <View className="px-2">
+            {filtered.map((product) => (
+              <ProductCard key={product.id} product={product} router={router} onAdd={handleAdd} />
+            ))}
+          </View>
         </ScrollView>
       )}
 

@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AiService } from "@/services/ai.service";
+import { useMoney } from "@/lib/useMoney";
 
 type Tool = {
   route: string;
@@ -37,26 +38,18 @@ const TOOLS: Tool[] = [
   {
     route: "/(ai)/crop-recommendation",
     title: "Crop Recommendation",
-    subtitle: "Rank YAM, TOMATO & POTATO by market value.",
+    subtitle: "Rank tubers (yam, sweet potato, cassava, water yam) by market value.",
     icon: "sprout",
     tint: "bg-amber-100",
   },
 ];
 
-const fmtMoney = (n?: number, currency = "USD") =>
-  n === undefined
-    ? "—"
-    : `${currency === "USD" ? "$" : ""}${n.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
-
 export default function Insight() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const [loading, setLoading] = useState(true);
   const [price, setPrice] = useState<number | undefined>();
-  const [currency, setCurrency] = useState("USD");
   const [avgDemand, setAvgDemand] = useState<number | undefined>();
 
   useEffect(() => {
@@ -69,7 +62,6 @@ export default function Insight() {
         ]);
         if (!active) return;
         setPrice(p?.predictedPrice);
-        setCurrency(p?.currency ?? "USD");
         const daily = Array.isArray(d?.forecast) && d.forecast.length
           ? d.forecast.reduce((s, v) => s + v, 0) / d.forecast.length
           : undefined;
@@ -123,7 +115,7 @@ export default function Insight() {
                     Predicted Price
                   </Text>
                   <Text className="mt-1 text-3xl font-bold text-white">
-                    {fmtMoney(price, currency)}
+                    {price === undefined ? "—" : format(price)}
                   </Text>
                   <Text className="text-xs text-emerald-200">per kg · next cycle</Text>
                 </View>

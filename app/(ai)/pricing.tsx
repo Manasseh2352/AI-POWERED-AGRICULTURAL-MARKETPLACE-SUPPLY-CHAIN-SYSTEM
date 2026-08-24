@@ -11,17 +11,11 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AiService, type PricePrediction } from "@/services/ai.service";
-
-const fmtMoney = (n?: number, currency = "USD") =>
-  n === undefined
-    ? "—"
-    : `${currency === "USD" ? "$" : ""}${n.toLocaleString(undefined, {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      })}`;
+import { useMoney } from "@/lib/useMoney";
 
 export default function Pricing() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const [region, setRegion] = useState("");
   const [loading, setLoading] = useState(false);
@@ -107,7 +101,7 @@ export default function Pricing() {
                 Predicted Price
               </Text>
               <Text className="mt-3 text-5xl font-bold text-white">
-                {fmtMoney(result.predictedPrice, result.currency)}
+                {format(result.predictedPrice)}
               </Text>
               <Text className="mt-1 text-sm text-emerald-200">
                 per kg · {result.horizon ?? "next-cycle"}

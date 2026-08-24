@@ -14,9 +14,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
+import { useMoney } from "@/lib/useMoney";
 
 export default function Checkout() {
   const router = useRouter();
+  const { format } = useMoney();
 
   const items = useCartStore((s) => s.items);
   const subtotal = useCartStore((s) => s.subtotal());
@@ -164,17 +166,17 @@ export default function Checkout() {
                   {product.name} · {quantityKg}kg
                 </Text>
                 <Text className="text-sm font-semibold text-slate-900">
-                  ${(product.pricePerKg * quantityKg).toFixed(2)}
+                  {format(product.pricePerKg * quantityKg)}
                 </Text>
               </View>
             ))}
             <View className="my-3 h-px bg-slate-100" />
             <View className="flex-row items-center justify-between py-1">
               <Text className="text-sm text-slate-600">Subtotal ({totalKg}kg)</Text>
-              <Text className="text-sm font-semibold text-slate-900">${subtotal.toFixed(2)}</Text>
+              <Text className="text-sm font-semibold text-slate-900">{format(subtotal)}</Text>
             </View>
             <Text className="mt-2 text-xs text-slate-400">
-              Freight and tax are calculated by the logistics engine and shown on the payment screen.
+              Shipping and tax are calculated and shown on the payment screen.
             </Text>
           </View>
 

@@ -3,14 +3,17 @@ import { useAuthStore } from "@/store/authStore";
 import { AuthService } from "@/services/auth.service";
 import {
   ProfileService,
-  formatMoney,
   type BuyerDashboard,
+  type BuyerProfile,
 } from "@/services/profile.service";
+import { useMoney } from "@/lib/useMoney";
+import CurrencyPicker from "@/lib/CurrencyPicker";
+import { chooseImageSource } from "@/lib/imagePick";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const SETTINGS = [
@@ -24,20 +27,49 @@ export default function Profile() {
   const router = useRouter();
   const setRole = useRoleStore((s) => s.setRole);
   const user = useAuthStore((s) => s.user);
+  const { code, format } = useMoney();
 
   const [dashboard, setDashboard] = useState<BuyerDashboard | null>(null);
+  const [profile, setProfile] = useState<BuyerProfile | null>(null);
   const [loadingStats, setLoadingStats] = useState(true);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
 
   useEffect(() => {
     let alive = true;
-    ProfileService.getBuyerDashboard()
-      .then((d) => alive && setDashboard(d))
-      .catch(() => alive && setDashboard(null))
+    Promise.all([
+      ProfileService.getBuyerDashboard(),
+      ProfileService.getBuyerProfile(),
+    ])
+      .then(([d, p]) => {
+        if (!alive) return;
+        setDashboard(d);
+        setProfile(p);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setDashboard(null);
+        setProfile(null);
+      })
       .finally(() => alive && setLoadingStats(false));
     return () => {
       alive = false;
     };
   }, []);
+
+  const handleChangeAvatar = async () => {
+    const uri = await chooseImageSource({ square: true });
+    if (!uri) return;
+    setUploadingAvatar(true);
+    try {
+      const updated = await ProfileService.uploadBuyerProfileImage(uri);
+      if (updated) setProfile(updated);
+    } catch (err: any) {
+      Alert.alert("Upload failed", err?.message || "Could not update your photo.");
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   const switchToFarmer = () => {
     setRole("farmer");
@@ -85,13 +117,25 @@ export default function Profile() {
           <View className="relative">
             <View className="h-40 w-40 rounded-full border-4 border-white bg-gray-200 overflow-hidden items-center justify-center">
               <Image
-                source={require("@/assets/images/logo.png")}
+                source={
+                  profile?.profileImageUrl
+                    ? { uri: profile.profileImageUrl }
+                    : require("@/assets/images/logo.png")
+                }
                 style={{ width: "100%", height: "100%" }}
                 contentFit="cover"
               />
             </View>
-            <TouchableOpacity className="absolute bottom-0 right-0 h-12 w-12 items-center justify-center rounded-full bg-emerald-700 shadow-lg shadow-emerald-700/25">
-              <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+            <TouchableOpacity
+              onPress={handleChangeAvatar}
+              disabled={uploadingAvatar}
+              className="absolute bottom-0 right-0 h-12 w-12 items-center justify-center rounded-full bg-emerald-700 shadow-lg shadow-emerald-700/25"
+            >
+              {uploadingAvatar ? (
+                <ActivityIndicator color="#fff" size="small" />
+              ) : (
+                <MaterialCommunityIcons name="pencil" size={20} color="#fff" />
+              )}
             </TouchableOpacity>
           </View>
 
@@ -143,7 +187,7 @@ export default function Profile() {
               <ActivityIndicator className="mt-3 self-start" color="#9d174d" />
             ) : (
               <Text className="mt-3 text-3xl font-bold text-slate-900">
-                {formatMoney(dashboard?.totalSpent)}
+                {format(dashboard?.totalSpent)}
               </Text>
             )}
             <Text className="mt-1 text-sm text-gray-500">All time</Text>
@@ -151,6 +195,28 @@ export default function Profile() {
         </View>
 
         <Text className="mt-10 text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
+          Preferences
+        </Text>
+
+        <View className="mt-4">
+          <TouchableOpacity
+            activeOpacity={0.8}
+            onPress={() => setPickerVisible(true)}
+            className="flex-row items-center gap-4 rounded-[28px] bg-white px-4 py-4 shadow-sm shadow-black/5"
+          >
+            <View className="h-12 w-12 rounded-2xl bg-emerald-50 items-center justify-center">
+              <MaterialCommunityIcons name="cash-multiple" size={20} color="#047857" />
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-slate-900">Currency</Text>
+              <Text className="text-xs text-gray-500">Display prices in your currency</Text>
+            </View>
+            <Text className="text-sm font-bold text-emerald-700">{code}</Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color="#9ca3af" />
+          </TouchableOpacity>
+        </View>
+
+        <Text className="mt-8 text-xs font-semibold uppercase tracking-[0.3em] text-gray-500">
           Account Settings
         </Text>
 
@@ -197,6 +263,8 @@ export default function Profile() {
           <Text className="text-sm font-semibold text-red-600">Logout</Text>
         </TouchableOpacity>
       </ScrollView>
+
+      <CurrencyPicker visible={pickerVisible} onClose={() => setPickerVisible(false)} />
     </SafeAreaView>
   );
 }

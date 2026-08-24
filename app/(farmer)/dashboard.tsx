@@ -1,11 +1,72 @@
+import { AuthService } from "@/services/auth.service";
+import {
+  ProfileService,
+  type FarmerDashboard,
+  type FarmerProfile,
+} from "@/services/profile.service";
+import { useAuthStore } from "@/store/authStore";
+import { useMoney } from "@/lib/useMoney";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
-import { useState, type ReactNode } from "react";
-import { Image, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export default function Dashboard() {
   const router = useRouter();
-  const [dismissedAdvisory, setDismissedAdvisory] = useState(false);
+  const user = useAuthStore((s) => s.user);
+  const { format } = useMoney();
+
+  const [profile, setProfile] = useState<FarmerProfile | null>(null);
+  const [dashboard, setDashboard] = useState<FarmerDashboard | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      ProfileService.getFarmerProfile(),
+      ProfileService.getFarmerDashboard(),
+    ])
+      .then(([p, d]) => {
+        if (!alive) return;
+        setProfile(p);
+        setDashboard(d);
+      })
+      .catch(() => {
+        if (!alive) return;
+        setProfile(null);
+        setDashboard(null);
+      })
+      .finally(() => alive && setLoading(false));
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
+  const displayName = profile?.farmName || user?.fullName || "Farmer";
+
+  const StatValue = ({
+    value,
+    color = "#111827",
+    className = "text-2xl font-bold text-gray-900 mt-1",
+  }: {
+    value: ReactNode;
+    color?: string;
+    className?: string;
+  }) =>
+    loading ? (
+      <ActivityIndicator className="mt-1 self-start" color={color} />
+    ) : (
+      <Text className={className}>{value}</Text>
+    );
 
   const QuickActionCard = ({
     title,
@@ -42,49 +103,6 @@ export default function Dashboard() {
     </TouchableOpacity>
   );
 
-  const ActivityItem = ({
-    icon,
-    title,
-    desc,
-    status,
-    time,
-    badgeColor,
-  }: {
-    icon: ReactNode;
-    title: string;
-    desc: string;
-    status: string;
-    time: string;
-    badgeColor?: string;
-  }) => (
-    <View className="flex-row items-start gap-3 mb-4 pb-4 border-b border-gray-200">
-      <View className="w-10 h-10 rounded-full bg-gray-200 items-center justify-center">
-        {icon}
-      </View>
-      <View className="flex-1">
-        <Text className="font-bold text-gray-900">{title}</Text>
-        <Text className="text-xs text-gray-500 mt-1">{desc}</Text>
-        <View
-          className={`mt-2 px-2 py-1 rounded-full w-fit ${badgeColor || "bg-yellow-100"}`}
-        >
-          <View className="flex-row items-center gap-1">
-            <MaterialCommunityIcons
-              name="circle-outline"
-              size={12}
-              color="#ca8a04"
-            />
-            <Text
-              className={`text-xs font-semibold ${badgeColor ? "text-white" : "text-yellow-800"}`}
-            >
-              {status}
-            </Text>
-          </View>
-        </View>
-      </View>
-      <Text className="text-xs text-gray-500">{time}</Text>
-    </View>
-  );
-
   return (
     <View className="flex-1 bg-white">
       <ScrollView showsVerticalScrollIndicator={false} className="flex-1">
@@ -95,7 +113,9 @@ export default function Dashboard() {
           </TouchableOpacity>
           <Text className="text-lg font-bold text-emerald-700">AgroTrade</Text>
           <View className="flex-row items-center gap-3">
-            <TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(farmer)/notifications")}
+            >
               <MaterialCommunityIcons
                 name="bell-outline"
                 size={24}
@@ -103,16 +123,13 @@ export default function Dashboard() {
               />
             </TouchableOpacity>
             <View className="w-10 h-10 rounded-full bg-gray-300 items-center justify-center">
-              <TouchableOpacity
-              onPress={() => router.push("/(farmer)/profile")}
-              >
+              <TouchableOpacity onPress={() => router.push("/(farmer)/profile")}>
                 <MaterialCommunityIcons
-                name="account-circle-outline"
-                size={24}
-                color="#374151"
-              />
+                  name="account-circle-outline"
+                  size={24}
+                  color="#374151"
+                />
               </TouchableOpacity>
-              
             </View>
           </View>
         </View>
@@ -120,10 +137,10 @@ export default function Dashboard() {
         {/* GREETING SECTION */}
         <View className="px-6 py-4">
           <Text className="text-2xl font-bold text-gray-900">
-            Good morning, Green Valley Farms
+            {greeting}, {displayName}
           </Text>
           <Text className="text-sm text-gray-500 mt-1">
-            Here's what's happening with your harvest today.
+            Here's what's happening with your farm today.
           </Text>
         </View>
 
@@ -134,67 +151,58 @@ export default function Dashboard() {
             <View className="flex-row justify-between items-start">
               <View>
                 <Text className="text-xs text-gray-500">Live Listings</Text>
-                <Text className="text-2xl font-bold text-gray-900 mt-1">
-                  12
-                </Text>
+                <StatValue value={dashboard?.totalProducts ?? 0} color="#047857" />
               </View>
-              <View className="bg-emerald-700 px-2 py-1 rounded-lg">
-                <Text className="text-xs text-white font-bold">+2 new</Text>
-              </View>
+              <MaterialCommunityIcons
+                name="clipboard-text"
+                size={28}
+                color="#047857"
+              />
             </View>
-            <MaterialCommunityIcons
-              name="clipboard-text"
-              size={28}
-              color="#047857"
-            />
           </View>
 
           {/* Total Sales */}
           <View className="flex-1 bg-yellow-50 rounded-2xl p-4 border border-yellow-100">
-            <View>
-              <Text className="text-xs text-gray-500">Total Sales</Text>
-              <Text className="text-xl font-bold text-gray-900 mt-1">
-                ₦2.4M
-              </Text>
+            <View className="flex-row justify-between items-start">
+              <View className="flex-1">
+                <Text className="text-xs text-gray-500">Total Sales</Text>
+                <StatValue
+                  value={format(dashboard?.totalRevenue)}
+                  color="#b45309"
+                  className="text-xl font-bold text-gray-900 mt-1"
+                />
+              </View>
+              <MaterialCommunityIcons name="cash" size={28} color="#b45309" />
             </View>
-            <MaterialCommunityIcons name="cash" size={28} color="#b45309" />
           </View>
         </View>
 
         {/* SECOND ROW STATS */}
         <View className="px-6 flex-row gap-3 mb-8">
-          {/* Pending Orders */}
-          <View className="flex-1 bg-red-50 rounded-2xl p-4 border border-red-100">
+          {/* Total Orders */}
+          <View className="flex-1 bg-blue-50 rounded-2xl p-4 border border-blue-100">
             <View className="flex-row justify-between items-start">
               <View>
-                <Text className="text-xs text-gray-500">Pending Orders</Text>
-                <Text className="text-2xl font-bold text-gray-900 mt-1">5</Text>
+                <Text className="text-xs text-gray-500">Total Orders</Text>
+                <StatValue value={dashboard?.totalOrders ?? 0} color="#1d4ed8" />
               </View>
-              <View className="bg-red-600 px-2 py-1 rounded-lg">
-                <Text className="text-xs text-white font-bold">!</Text>
-              </View>
+              <MaterialCommunityIcons
+                name="clipboard-list"
+                size={28}
+                color="#1d4ed8"
+              />
             </View>
-            <Text className="text-xs text-red-700 mt-2 font-semibold">
-              Action Required
-            </Text>
           </View>
 
-          {/* Market Trend */}
-          <View className="flex-1 bg-blue-50 rounded-2xl p-4 border border-blue-100">
-            <View>
-              <Text className="text-xs text-gray-500">Market Trend</Text>
-              <Text className="text-lg font-bold text-emerald-700 mt-1">
-                +12%
-              </Text>
+          {/* Active Shipments */}
+          <View className="flex-1 bg-orange-50 rounded-2xl p-4 border border-orange-100">
+            <View className="flex-row justify-between items-start">
+              <View>
+                <Text className="text-xs text-gray-500">Active Shipments</Text>
+                <StatValue value={dashboard?.activeShipments ?? 0} color="#c2410c" />
+              </View>
+              <MaterialCommunityIcons name="truck" size={28} color="#c2410c" />
             </View>
-            <Text className="text-xs text-gray-600 mt-2 font-semibold">
-              High Demand
-            </Text>
-            <MaterialCommunityIcons
-              name="trending-up"
-              size={24}
-              color="#047857"
-            />
           </View>
         </View>
 
@@ -240,119 +248,6 @@ export default function Dashboard() {
               />
             }
           />
-        </View>
-
-        {/* RECENT ACTIVITY */}
-        <View className="px-6 mb-8">
-          <View className="flex-row justify-between items-center mb-4">
-            <Text className="text-xs font-bold text-gray-600 tracking-wider">
-              RECENT ACTIVITY
-            </Text>
-            <TouchableOpacity>
-              <Text className="text-xs text-emerald-700 font-bold">
-                View All
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <ActivityItem
-            icon={
-              <MaterialCommunityIcons name="cart" size={18} color="#047857" />
-            }
-            title="New Order: 200kg Premium Maize"
-            desc="Purchased by Lagos Flour Mills"
-            status="Pending Confirmation"
-            time="2h"
-            badgeColor="bg-yellow-100"
-          />
-
-          <ActivityItem
-            icon={
-              <MaterialCommunityIcons
-                name="check-circle-outline"
-                size={18}
-                color="#047857"
-              />
-            }
-            title="Listing Verified"
-            desc='"Organic Cocoa Beans" is now live on the marketplace."'
-            status="Published"
-            time="5h"
-            badgeColor="bg-emerald-100"
-          />
-
-          <ActivityItem
-            icon={
-              <MaterialCommunityIcons
-                name="cash-multiple"
-                size={18}
-                color="#047857"
-              />
-            }
-            title="Payout Dispatched"
-            desc="₦450,000 sent to your verified bank account."
-            status="Completed"
-            time="Yesterday"
-            badgeColor="bg-emerald-100"
-          />
-        </View>
-
-        {/* AI ADVISORY */}
-        {!dismissedAdvisory && (
-          <View className="mx-6 mb-8 bg-emerald-700 rounded-3xl p-6 overflow-hidden">
-            {/* Background image effect */}
-            <View className="mb-4">
-              <View className="flex-row items-center gap-2 mb-3">
-                <MaterialCommunityIcons
-                  name="flash"
-                  size={14}
-                  color="#d1fae5"
-                />
-                <Text className="text-white text-xs font-bold tracking-wider">
-                  AI ADVISORY
-                </Text>
-              </View>
-              <Text className="text-white text-lg font-bold mb-2">
-                Yams prices are predicted to rise 15% next week.
-              </Text>
-              <Text className="text-emerald-100 text-sm leading-5">
-                Our AI analyzed weather patterns and logistics data. We
-                recommend holding your current stock for 5 more days to maximize
-                profit.
-              </Text>
-            </View>
-
-            <TouchableOpacity
-              onPress={() => router.push("/(ai)/insight")}
-              className="bg-white rounded-full py-3 mb-3"
-            >
-              <Text className="text-center text-emerald-700 font-bold text-sm">
-                See Detailed Report
-              </Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => setDismissedAdvisory(true)}>
-              <Text className="text-center text-white text-sm font-semibold">
-                Dismiss
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* YAM HARVEST TRENDS */}
-        <View className="mx-6 mb-8 bg-yellow-100 rounded-2xl h-32 overflow-hidden relative">
-          <Image
-            source={require("@/assets/images/Home.jpeg")}
-            style={{ width: "100%", height: "100%", opacity: 0.6 }}
-          />
-          <View className="absolute inset-0 items-center justify-between p-4 flex-row">
-            <Text className="text-sm font-bold text-gray-900">
-              Yam Harvest Trends
-            </Text>
-            <TouchableOpacity className="w-8 h-8 rounded-full bg-emerald-700 items-center justify-center">
-              <Text className="text-white font-bold">+</Text>
-            </TouchableOpacity>
-          </View>
         </View>
 
         <View className="h-20" />

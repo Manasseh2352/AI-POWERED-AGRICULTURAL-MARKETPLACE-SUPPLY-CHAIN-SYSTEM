@@ -10,6 +10,7 @@ import {
   View,
 } from "react-native";
 import { OrderService } from "@/services/order.service";
+import { useMoney } from "@/lib/useMoney";
 
 const num = (v: any) => {
   const n = Number(v);
@@ -49,6 +50,7 @@ const titleCase = (s: string) =>
   s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 
 export default function FarmerOrders() {
+  const { format } = useMoney();
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -171,12 +173,8 @@ export default function FarmerOrders() {
               const paid =
                 Array.isArray(order.payments) &&
                 order.payments.some((p: any) => p?.status === "PAID");
-              const currency = order.currency ?? "USD";
               const total = num(order.totalAmount);
-              const totalLabel = `${currency === "USD" ? "$" : ""}${total.toLocaleString(undefined, {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`;
+              const totalLabel = format(total);
               const isPending = order.status === "CREATED";
               const busy = actingId === order.id;
 
@@ -234,11 +232,7 @@ export default function FarmerOrders() {
                         {it.unit ?? "kg"}
                       </Text>
                       <Text className="text-sm font-semibold text-gray-800">
-                        {currency === "USD" ? "$" : ""}
-                        {num(it.lineTotal).toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                          maximumFractionDigits: 2,
-                        })}
+                        {format(num(it.lineTotal))}
                       </Text>
                     </View>
                   ))}

@@ -14,6 +14,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { ProductService, type UiProduct, type ProductType } from "@/services/product.service";
+import { useMoney } from "@/lib/useMoney";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const FALLBACK_IMAGE =
@@ -21,14 +22,16 @@ const FALLBACK_IMAGE =
 
 const categories: { id: ProductType; label: string; icon: React.ComponentProps<typeof MaterialCommunityIcons>["name"] }[] = [
   { id: "YAM", label: "Yam", icon: "food-drumstick-outline" },
-  { id: "TOMATO", label: "Tomato", icon: "fruit-cherries" },
-  { id: "POTATO", label: "Potato", icon: "sprout" },
+  { id: "SWEET_POTATO", label: "Sweet Potato", icon: "carrot" },
+  { id: "CASSAVA", label: "Cassava", icon: "food-variant" },
+  { id: "WATER_YAM", label: "Water Yam", icon: "leaf" },
 ];
 
 export default function BuyerHome() {
   const router = useRouter();
   const addItem = useCartStore((s) => s.addItem);
   const cartCount = useCartStore((s) => s.items.length);
+  const { format } = useMoney();
 
   const buyerName =
     useAuthStore.getState().user?.fullName ||
@@ -157,11 +160,6 @@ export default function BuyerHome() {
                 className="h-56 w-full rounded-3xl bg-slate-200"
               />
               <View className="-mt-28 p-5">
-                <View className="self-start rounded-full bg-amber-100 px-3 py-1">
-                  <Text className="text-xs font-semibold text-amber-800">
-                    {featured.perishable ? "Air Freight" : "Sea Freight"}
-                  </Text>
-                </View>
                 <Text className="mt-3 text-2xl font-bold text-white">{featured.name}</Text>
                 <Text className="mt-2 text-sm text-white/90" numberOfLines={2}>
                   {featured.description}
@@ -170,7 +168,7 @@ export default function BuyerHome() {
                   <View className="flex-row items-center rounded-full bg-white px-4 py-3">
                     <MaterialCommunityIcons name="shopping" size={18} color="#14532d" />
                     <Text className="ml-2 font-semibold text-emerald-900">
-                      ${featured.pricePerKg.toFixed(2)}/kg
+                      {format(featured.pricePerKg)}/kg
                     </Text>
                   </View>
                 </View>
@@ -187,17 +185,18 @@ export default function BuyerHome() {
 
           {/* Categories */}
           <Text className="mt-6 text-lg font-semibold text-slate-900">Browse Crops</Text>
-          <View className="mt-4 flex-row items-center justify-around">
+          <View className="mt-4 flex-row flex-wrap">
             {categories.map((cat) => (
               <TouchableOpacity
                 key={cat.id}
                 onPress={() => router.push("/(buyer)/marketplace")}
-                className="items-center"
+                className="items-center mb-2"
+                style={{ width: "25%" }}
               >
                 <View className="h-16 w-16 items-center justify-center rounded-full bg-emerald-50">
                   <MaterialCommunityIcons name={cat.icon} size={24} color="#166534" />
                 </View>
-                <Text className="mt-2 text-sm text-slate-700">{cat.label}</Text>
+                <Text className="mt-2 text-sm text-slate-700 text-center">{cat.label}</Text>
               </TouchableOpacity>
             ))}
           </View>
@@ -228,7 +227,7 @@ export default function BuyerHome() {
                       {p.name}
                     </Text>
                     <Text className="text-sm text-emerald-900 mt-1">
-                      ${p.pricePerKg.toFixed(2)}/kg
+                      {format(p.pricePerKg)}/kg
                     </Text>
                     <TouchableOpacity
                       onPress={() => addItem(p, 1)}

@@ -11,14 +11,16 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { AiService, type CropRecommendation } from "@/services/ai.service";
+import { PRODUCT_LABELS, type ProductType } from "@/services/product.service";
 
 type Risk = "LOW" | "MEDIUM" | "HIGH";
 const RISKS: Risk[] = ["LOW", "MEDIUM", "HIGH"];
 
 const CROP_ICON: Record<string, React.ComponentProps<typeof MaterialCommunityIcons>["name"]> = {
   YAM: "food-drumstick-outline",
-  TOMATO: "fruit-cherries",
-  POTATO: "sprout",
+  SWEET_POTATO: "carrot",
+  CASSAVA: "food-variant",
+  WATER_YAM: "leaf",
 };
 
 const titleCase = (s?: string) =>
@@ -70,7 +72,7 @@ export default function CropRecommendationScreen() {
           </View>
 
           <Text className="mt-6 text-sm text-slate-500">
-            Ranks the supported crops (Yam, Tomato, Potato) by current market value so you can plant what pays.
+            Ranks the supported tubers (Yam, Sweet Potato, Cassava, Water Yam) by current market value so you can plant what pays.
           </Text>
 
           {/* INPUTS */}
@@ -130,6 +132,7 @@ export default function CropRecommendationScreen() {
               {recommendations.map((rec, i) => {
                 const pct = Math.round((rec.confidence ?? 0) * 100);
                 const crop = String(rec.cropName ?? "").toUpperCase();
+                const label = PRODUCT_LABELS[crop as ProductType] ?? titleCase(rec.cropName);
                 return (
                   <View key={`${crop}-${i}`} className="rounded-[28px] bg-white p-5 shadow-sm shadow-black/5">
                     <View className="flex-row items-center gap-4">
@@ -142,7 +145,7 @@ export default function CropRecommendationScreen() {
                       </View>
                       <View className="flex-1">
                         <View className="flex-row items-center justify-between">
-                          <Text className="text-lg font-bold text-slate-900">{titleCase(rec.cropName)}</Text>
+                          <Text className="text-lg font-bold text-slate-900">{label}</Text>
                           {i === 0 ? (
                             <View className="rounded-full bg-amber-100 px-3 py-1">
                               <Text className="text-xs font-bold text-amber-800">Top Pick</Text>

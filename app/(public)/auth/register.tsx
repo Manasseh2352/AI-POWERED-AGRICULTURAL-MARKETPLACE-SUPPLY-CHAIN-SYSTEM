@@ -35,8 +35,10 @@ export default function Register() {
     password: "",
     agreeToTerms: false,
   });
-  
+
   const [loading, setLoading] = useState(false);
+  const [showBuyerPw, setShowBuyerPw] = useState(false);
+  const [showFarmerPw, setShowFarmerPw] = useState(false);
 
   const handleBuyerChange = (field: string, value: any) => {
     setBuyerForm((prev) => ({ ...prev, [field]: value }));
@@ -171,14 +173,23 @@ export default function Register() {
 
             <View className="mb-6">
               <Text className="text-sm font-semibold text-gray-900 mb-2">Password</Text>
-              <TextInput
-                placeholder="Secure Password"
-                value={buyerForm.password}
-                onChangeText={(text) => handleBuyerChange("password", text)}
-                secureTextEntry
-                className="border border-gray-300 rounded-2xl px-4 py-3 text-gray-900"
-                placeholderTextColor="#999"
-              />
+              <View className="flex-row items-center border border-gray-300 rounded-2xl px-4">
+                <TextInput
+                  placeholder="Secure Password"
+                  value={buyerForm.password}
+                  onChangeText={(text) => handleBuyerChange("password", text)}
+                  secureTextEntry={!showBuyerPw}
+                  className="flex-1 py-3 text-gray-900"
+                  placeholderTextColor="#999"
+                />
+                <TouchableOpacity onPress={() => setShowBuyerPw((s) => !s)} hitSlop={8}>
+                  <MaterialCommunityIcons
+                    name={showBuyerPw ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color="#6b7280"
+                  />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <View className="mb-6">
@@ -302,10 +313,17 @@ export default function Register() {
                   placeholder="Secure Password"
                   value={farmerForm.password}
                   onChangeText={(text) => handleFarmerChange("password", text)}
-                  secureTextEntry
+                  secureTextEntry={!showFarmerPw}
                   className="flex-1 py-3 text-gray-900 pl-2"
                   placeholderTextColor="#999"
                 />
+                <TouchableOpacity onPress={() => setShowFarmerPw((s) => !s)} hitSlop={8}>
+                  <MaterialCommunityIcons
+                    name={showFarmerPw ? "eye-off-outline" : "eye-outline"}
+                    size={22}
+                    color="#6b7280"
+                  />
+                </TouchableOpacity>
               </View>
             </View>
 
