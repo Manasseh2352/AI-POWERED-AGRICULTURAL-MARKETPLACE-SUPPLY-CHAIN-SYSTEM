@@ -26,6 +26,7 @@ export type UiProduct = {
   quantityKg: number;
   images: string[];
   seller: string;
+  farmerImageUrl: string | null;
   location: string | null;
   destinationCountry: string | null;
 };
@@ -49,6 +50,7 @@ export function mapProduct(p: any): UiProduct {
       p?.farmerProfile?.farmName ??
       p?.farmerProfile?.displayName ??
       "Verified Farmer",
+    farmerImageUrl: p?.farmerProfile?.profileImageUrl ?? null,
     location: p?.location ?? p?.farmerProfile?.location ?? null,
     destinationCountry: p?.destinationCountry ?? null,
   };

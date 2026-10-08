@@ -3,6 +3,7 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -86,6 +87,11 @@ export default function BuyerHome() {
 
   const submitSearch = () => {
     router.push("/(buyer)/marketplace");
+  };
+
+  const handleAddToCart = (product: any, quantity = 1) => {
+    addItem(product, quantity);
+    Alert.alert("Added to cart", `${quantity}kg of ${product.name} was added to your cart.`);
   };
 
   return (
@@ -230,7 +236,7 @@ export default function BuyerHome() {
                       {format(p.pricePerKg)}/kg
                     </Text>
                     <TouchableOpacity
-                      onPress={() => addItem(p, 1)}
+                      onPress={() => handleAddToCart(p, 1)}
                       className="mt-3 rounded-xl bg-emerald-900 py-2 items-center justify-center"
                     >
                       <Text className="text-sm font-semibold text-white">Add to Cart</Text>

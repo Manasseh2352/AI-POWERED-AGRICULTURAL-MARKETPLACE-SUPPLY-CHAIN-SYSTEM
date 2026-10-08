@@ -211,7 +211,7 @@ export default function OrderHistory() {
                           </TouchableOpacity>
                         ) : (
                           <TouchableOpacity
-                            onPress={() => router.push("/(buyer)/orders/current")}
+                            onPress={() => router.push(`/(buyer)/tracking?orderId=${order.id}`)}
                             className="flex-1 rounded-full border border-emerald-800 px-4 py-3"
                           >
                             <Text className="text-center text-sm font-semibold text-emerald-900">

@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
+  Alert,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -53,8 +54,18 @@ function ProductCard({
             </Text>
             <Text className="text-xs text-slate-500">per kg</Text>
           </View>
-          <View className="flex-row items-center gap-2">
-            <MaterialCommunityIcons name="account" size={16} color="#6b7280" />
+          <View className="flex-row items-center gap-2 max-w-[55%]">
+            {product.farmerImageUrl ? (
+              <Image
+                source={{ uri: product.farmerImageUrl }}
+                contentFit="cover"
+                className="h-8 w-8 rounded-full bg-slate-200"
+              />
+            ) : (
+              <View className="h-8 w-8 items-center justify-center rounded-full bg-emerald-100">
+                <MaterialCommunityIcons name="account" size={16} color="#14532d" />
+              </View>
+            )}
             <Text className="text-sm text-slate-500" numberOfLines={1}>
               {product.seller}
             </Text>
@@ -113,6 +124,7 @@ export default function Marketplace() {
 
   const handleAdd = (p: UiProduct) => {
     addItem(p, 1);
+    Alert.alert("Added to cart", `1kg of ${p.name} was added to your cart.`);
   };
 
   const filtered = useMemo(() => {

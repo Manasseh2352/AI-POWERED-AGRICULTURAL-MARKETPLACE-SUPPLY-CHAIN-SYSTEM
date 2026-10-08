@@ -14,6 +14,7 @@ export type PlaceOrderInput = {
   destinationName?: string;
   destinationAddress?: string;
   destinationPhone?: string;
+  deliveryMethod?: "AIR" | "FLIGHT";
   // Optional client-computed pricing overrides; backend recomputes otherwise.
   subtotalAmount?: number;
   taxAmount?: number;
@@ -53,5 +54,29 @@ export const OrderService = {
 
   rejectOrder: async (orderId: string) => {
     return apiFetch(`/farmer/orders/${orderId}/reject`, { method: "POST" });
+  },
+
+  advanceShipmentStatus: async (
+    orderId: string,
+    status: "PACKED" | "SHIPPED" | "DELIVERED",
+  ) => {
+    return apiFetch(`/farmer/orders/${orderId}/advance-status`, {
+      method: "POST",
+      body: JSON.stringify({ status }),
+    });
+  },
+
+  // Buyer confirms goods received on a DELIVERED order → releases the farmer's
+  // escrow into their available (withdrawable) balance. Idempotent server-side.
+  confirmReceived: async (orderId: string) => {
+    return apiFetch(`/buyer/orders/${orderId}/confirm-received`, {
+      method: "POST",
+    });
+  },
+
+  deleteOrder: async (orderId: string) => {
+    return apiFetch(`/buyer/orders/${orderId}`, {
+      method: "DELETE",
+    });
   },
 };

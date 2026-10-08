@@ -3,6 +3,7 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -11,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
+import { WalletService, type Wallet } from "@/services/wallet.service";
 import { useMoney } from "@/lib/useMoney";
 
 const num = (v: any) => {
@@ -54,13 +56,19 @@ export default function Earnings() {
   const { format } = useMoney();
 
   const [orders, setOrders] = useState<any[]>([]);
+  const [wallet, setWallet] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [withdrawing, setWithdrawing] = useState(false);
 
   const loadOrders = async () => {
     try {
-      const data = await OrderService.getFarmerOrders();
+      const [data, walletData] = await Promise.all([
+        OrderService.getFarmerOrders(),
+        WalletService.getWallet().catch(() => null),
+      ]);
       setOrders(Array.isArray(data) ? data : []);
+      setWallet(walletData);
     } catch (err) {
       console.error("Failed to load earnings", err);
     } finally {
@@ -77,6 +85,48 @@ export default function Earnings() {
     setRefreshing(true);
     loadOrders();
   }, []);
+
+  const available = num(wallet?.availableBalance);
+  const escrow = num(wallet?.escrowBalance);
+
+  const handleWithdraw = () => {
+    if (withdrawing) return;
+    if (available <= 0) {
+      Alert.alert(
+        "Nothing to withdraw",
+        "Your available balance is empty. Funds are released once buyers confirm they've received their orders."
+      );
+      return;
+    }
+    Alert.alert(
+      "Withdraw funds",
+      `Request a payout of ${money(available)} from your available balance?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Withdraw",
+          onPress: async () => {
+            setWithdrawing(true);
+            try {
+              const res = await WalletService.requestWithdrawal(available);
+              if (res?.wallet) setWallet(res.wallet);
+              Alert.alert(
+                "Withdrawal requested",
+                `${money(available)} is on its way to your account.`
+              );
+            } catch (error: any) {
+              Alert.alert(
+                "Withdrawal failed",
+                error?.message || "Please try again in a moment."
+              );
+            } finally {
+              setWithdrawing(false);
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const stats = useMemo(() => {
     let earned = 0;
@@ -147,6 +197,76 @@ export default function Earnings() {
                   </Text>
                 </View>
               </View>
+            </View>
+
+            {/* WALLET — available + escrow balances */}
+            <View className="mt-4 rounded-[28px] bg-white p-5 shadow-sm shadow-black/5">
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center gap-2">
+                  <View className="h-9 w-9 items-center justify-center rounded-xl bg-emerald-100">
+                    <MaterialCommunityIcons
+                      name="wallet-outline"
+                      size={18}
+                      color="#047857"
+                    />
+                  </View>
+                  <Text className="text-base font-semibold text-slate-900">
+                    Wallet
+                  </Text>
+                </View>
+                <Text className="text-xs font-medium text-slate-400">
+                  {wallet?.currency ?? "USD"}
+                </Text>
+              </View>
+
+              <View className="mt-5 flex-row gap-3">
+                <View className="flex-1">
+                  <Text className="text-xs uppercase tracking-widest text-slate-400">
+                    Available
+                  </Text>
+                  <Text className="mt-1 text-2xl font-bold text-emerald-900">
+                    {money(available)}
+                  </Text>
+                  <Text className="text-xs text-slate-400">withdrawable</Text>
+                </View>
+                <View className="w-px bg-slate-100" />
+                <View className="flex-1">
+                  <Text className="text-xs uppercase tracking-widest text-slate-400">
+                    In escrow
+                  </Text>
+                  <Text className="mt-1 text-2xl font-bold text-amber-700">
+                    {money(escrow)}
+                  </Text>
+                  <Text className="text-xs text-slate-400">
+                    held until delivery
+                  </Text>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                onPress={handleWithdraw}
+                disabled={withdrawing || available <= 0}
+                className={`mt-5 flex-row items-center justify-center gap-2 rounded-3xl px-5 py-4 ${
+                  available > 0 ? "bg-emerald-900" : "bg-slate-200"
+                }`}
+              >
+                {withdrawing ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="bank-transfer-out"
+                    size={18}
+                    color={available > 0 ? "#fff" : "#94a3b8"}
+                  />
+                )}
+                <Text
+                  className={`text-base font-semibold ${
+                    available > 0 ? "text-white" : "text-slate-400"
+                  }`}
+                >
+                  {withdrawing ? "Requesting..." : "Withdraw"}
+                </Text>
+              </TouchableOpacity>
             </View>
 
             {/* SECONDARY STATS */}

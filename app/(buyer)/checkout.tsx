@@ -30,6 +30,7 @@ export default function Checkout() {
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState<"AIR" | "FLIGHT">("AIR");
   const [placing, setPlacing] = useState(false);
 
   // Prefill the recipient name from the signed-in buyer.
@@ -63,6 +64,7 @@ export default function Checkout() {
         destinationAddress: address.trim(),
         destinationPhone: phone.trim(),
         notes: notes.trim() || undefined,
+        deliveryMethod,
       });
 
       const orderId = res?.orderId ?? res?.order?.id;
@@ -155,6 +157,46 @@ export default function Checkout() {
                 className="border border-gray-200 rounded-2xl px-4 py-3 text-slate-900"
               />
             </View>
+          </View>
+
+          <Text className="mt-8 text-base font-semibold text-slate-900">Delivery Method</Text>
+          <View className="mt-4 rounded-[28px] bg-white p-4 shadow-sm shadow-black/5">
+            {([
+              { label: "Air Delivery", value: "AIR", subtitle: "Fastest and ideal for fresh produce" },
+              { label: "Flight Delivery", value: "FLIGHT", subtitle: "Priority cargo option for larger loads" },
+            ] as const).map((option) => {
+              const active = deliveryMethod === option.value;
+              return (
+                <TouchableOpacity
+                  key={option.value}
+                  onPress={() => setDeliveryMethod(option.value)}
+                  className={`mb-3 rounded-[24px] border p-4 ${
+                    active ? "border-emerald-700 bg-emerald-50" : "border-slate-200 bg-white"
+                  }`}
+                >
+                  <View className="flex-row items-center justify-between">
+                    <View className="flex-1">
+                      <Text className="text-base font-semibold text-slate-900">{option.label}</Text>
+                      <Text className="mt-1 text-sm text-slate-500">{option.subtitle}</Text>
+                    </View>
+                    <View
+                      className={`h-6 w-6 rounded-full border ${
+                        active ? "border-emerald-700 bg-emerald-700" : "border-slate-300 bg-white"
+                      }`}
+                    >
+                      {active ? (
+                        <MaterialCommunityIcons
+                          name="check"
+                          size={16}
+                          color="#fff"
+                          style={{ alignSelf: "center", marginTop: 2 }}
+                        />
+                      ) : null}
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
           {/* Order summary */}

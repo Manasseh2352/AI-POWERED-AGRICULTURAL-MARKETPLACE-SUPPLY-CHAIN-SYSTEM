@@ -57,6 +57,18 @@ export default function FarmerOrders() {
   const [refreshing, setRefreshing] = useState(false);
   const [actingId, setActingId] = useState<string | null>(null);
 
+  const handleAdvanceShipment = async (orderId: string, status: "PACKED" | "SHIPPED" | "DELIVERED") => {
+    setActingId(orderId);
+    try {
+      await OrderService.advanceShipmentStatus(orderId, status);
+      await fetchOrders();
+    } catch (err: any) {
+      Alert.alert("Could not update shipment", err?.message || "Please try again.");
+    } finally {
+      setActingId(null);
+    }
+  };
+
   const fetchOrders = async () => {
     try {
       setError(null);
@@ -177,6 +189,10 @@ export default function FarmerOrders() {
               const totalLabel = format(total);
               const isPending = order.status === "CREATED";
               const busy = actingId === order.id;
+              const primaryShipment = groups[0] ?? null;
+              const shipmentStatus = primaryShipment?.status ?? "PENDING";
+              const shipmentCarrier = primaryShipment?.carrier ?? "DHL";
+              const shipmentTrackingNumber = primaryShipment?.trackingNumber ?? "DHL-NEW";
 
               return (
                 <View
@@ -248,6 +264,31 @@ export default function FarmerOrders() {
                     <Text className="text-xs text-gray-500">{formatDate(order.createdAt)}</Text>
                   </View>
 
+                  {primaryShipment && (
+                    <View className="mt-4 rounded-xl border border-emerald-100 bg-emerald-50 p-3">
+                      <View className="flex-row items-center justify-between">
+                        <Text className="text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-800">
+                          DHL shipment
+                        </Text>
+                        <Text className="text-[10px] font-semibold text-emerald-800">
+                          {shipmentStatus}
+                        </Text>
+                      </View>
+
+                      <View className="mt-2 flex-row items-center justify-between">
+                        <Text className="text-xs text-gray-600">Carrier</Text>
+                        <Text className="text-xs font-semibold text-gray-900">{shipmentCarrier}</Text>
+                      </View>
+
+                      <View className="mt-1 flex-row items-center justify-between">
+                        <Text className="text-xs text-gray-600">Tracking #</Text>
+                        <Text className="text-xs font-semibold text-gray-900">
+                          {shipmentTrackingNumber}
+                        </Text>
+                      </View>
+                    </View>
+                  )}
+
                   {/* ACCEPT / REJECT (only while awaiting approval) */}
                   {isPending && (
                     <View className="flex-row gap-3 mt-4">
@@ -273,6 +314,32 @@ export default function FarmerOrders() {
                           <Text className="text-sm font-semibold text-white">Accept</Text>
                         )}
                       </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {!isPending && shipmentStatus !== "DELIVERED" && (
+                    <View className="mt-4">
+                      {shipmentStatus !== "SHIPPED" && (
+                        <TouchableOpacity
+                          onPress={() => handleAdvanceShipment(order.id, "SHIPPED")}
+                          disabled={busy}
+                          className="rounded-full bg-indigo-900 px-4 py-3 items-center justify-center"
+                        >
+                          <Text className="text-sm font-semibold text-white">
+                            {shipmentStatus === "PACKED" ? "Mark in transit" : "Mark shipped"}
+                          </Text>
+                        </TouchableOpacity>
+                      )}
+
+                      {shipmentStatus === "SHIPPED" && (
+                        <TouchableOpacity
+                          onPress={() => handleAdvanceShipment(order.id, "DELIVERED")}
+                          disabled={busy}
+                          className="rounded-full bg-emerald-900 px-4 py-3 items-center justify-center"
+                        >
+                          <Text className="text-sm font-semibold text-white">Mark delivered</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
                 </View>

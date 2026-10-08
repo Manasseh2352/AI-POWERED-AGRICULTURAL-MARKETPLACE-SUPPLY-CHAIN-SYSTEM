@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { UiProduct } from "@/services/product.service";
+import { NotificationService } from "@/services/notification.service";
 
 export type CartItem = {
   product: UiProduct;
@@ -30,7 +31,15 @@ const clampQty = (qty: number, available: number) => {
 export const useCartStore = create<CartState>((set, get) => ({
   items: [],
 
-  addItem: (product, quantityKg = 1) =>
+  addItem: (product, quantityKg = 1) => {
+    // Best-effort "added to cart" notification (there is no server-side cart).
+    // Fire-and-forget: a failure must never affect local cart state.
+    NotificationService.notifyCartItem({
+      productId: product.id,
+      productName: product.name,
+      quantityKg,
+    }).catch(() => {});
+
     set((state) => {
       const existing = state.items.find((i) => i.product.id === product.id);
       if (existing) {
@@ -50,7 +59,8 @@ export const useCartStore = create<CartState>((set, get) => ({
           { product, quantityKg: clampQty(quantityKg, product.quantityKg) },
         ],
       };
-    }),
+    });
+  },
 
   removeItem: (productId) =>
     set((state) => ({

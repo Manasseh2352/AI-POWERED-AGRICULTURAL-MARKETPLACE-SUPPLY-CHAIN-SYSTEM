@@ -31,6 +31,7 @@ function resolveBaseUrl(): string {
 
 export const API_BASE_URL = resolveBaseUrl();
 
-// Debug bypass for OTP in dev mode (server-controlled).
-// Set OTP_DEBUG_BYPASS=true and OTP_DEBUG_BYPASS_CODE=123456 (or custom) in backend env.
-export const DEV_BYPASS_OTP = true;
+// Debug bypass for OTP (server-controlled). Must stay false for production.
+// To exercise a bypass in local dev, set OTP_DEBUG_BYPASS=true and
+// OTP_DEBUG_BYPASS_CODE=123456 (or custom) in the backend env instead.
+export const DEV_BYPASS_OTP = false;
