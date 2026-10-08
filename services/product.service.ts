@@ -31,10 +31,76 @@ export type UiProduct = {
   destinationCountry: string | null;
 };
 
+function extractImageUrl(item: any): string | null {
+  if (typeof item === "string") return item.trim() || null;
+  if (!item || typeof item !== "object") return null;
+
+  const candidates = [
+    item.url,
+    item.secure_url,
+    item.src,
+    item.href,
+    item.imageUrl,
+    item.image,
+    item.image_url,
+    item.publicUrl,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.trim())
+      return candidate.trim();
+  }
+
+  return null;
+}
+
+function normalizeImages(value: any): string[] {
+  const queue: any[] = [];
+
+  if (Array.isArray(value)) queue.push(...value);
+  else if (value != null) queue.push(value);
+
+  if (Array.isArray(value?.imageUrls)) queue.push(...value.imageUrls);
+  if (Array.isArray(value?.images)) queue.push(...value.images);
+  if (typeof value?.imageUrl === "string") queue.push(value.imageUrl);
+  if (typeof value?.image === "string") queue.push(value.image);
+
+  const urls: string[] = [];
+  const seen = new Set<string>();
+
+  for (const item of queue) {
+    if (Array.isArray(item)) {
+      for (const nested of item) {
+        const url = extractImageUrl(nested);
+        if (url && !seen.has(url)) {
+          seen.add(url);
+          urls.push(url);
+        }
+      }
+      continue;
+    }
+
+    const url = extractImageUrl(item);
+    if (url && !seen.has(url)) {
+      seen.add(url);
+      urls.push(url);
+    }
+  }
+
+  return urls;
+}
+
 export function mapProduct(p: any): UiProduct {
   const type = String(p?.productName ?? "").toUpperCase() as ProductType;
   const label = PRODUCT_LABELS[type] ?? "Produce";
   const qty = Number(p?.quantityKg ?? 0);
+  const images = normalizeImages({
+    images: p?.images,
+    imageUrls: p?.imageUrls,
+    imageUrl: p?.imageUrl,
+    image: p?.image,
+  });
+
   return {
     id: p?.id,
     productName: type,
@@ -45,7 +111,7 @@ export function mapProduct(p: any): UiProduct {
         : `Fresh ${label} — ${qty.toLocaleString()}kg available`,
     pricePerKg: Number(p?.pricePerKg ?? 0),
     quantityKg: qty,
-    images: Array.isArray(p?.images) ? p.images : [],
+    images,
     seller:
       p?.farmerProfile?.farmName ??
       p?.farmerProfile?.displayName ??
@@ -107,10 +173,24 @@ export const ProductService = {
     const name = uri.split("/").pop() || `product-${Date.now()}.jpg`;
     const ext = (/\.(\w+)$/.exec(name)?.[1] || "jpg").toLowerCase();
     const type =
-      ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+      ext === "png"
+        ? "image/png"
+        : ext === "webp"
+          ? "image/webp"
+          : "image/jpeg";
 
     const form = new FormData();
-    form.append("image", { uri, name, type } as any);
+
+    try {
+      // React Native/Expo can reject plain objects appended to FormData.
+      // Convert the local file to a Blob first so the native runtime accepts it.
+      const response = await fetch(uri);
+      const blob = await response.blob();
+      form.append("image", blob, name);
+    } catch {
+      // Fallback for environments that cannot produce a Blob from a local file URI.
+      form.append("image", { uri, name, type } as any);
+    }
 
     const res = await apiFetch("/farmer/product-image", {
       method: "POST",

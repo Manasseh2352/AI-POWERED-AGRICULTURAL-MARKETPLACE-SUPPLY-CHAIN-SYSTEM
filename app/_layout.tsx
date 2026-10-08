@@ -32,18 +32,28 @@ export default function RootLayout() {
   useEffect(() => {
     if (!appReady || (segments as string[]).length === 0) return;
 
+    let active = true;
+
     const inPublic = segments[0] === "(public)";
     const inBuyer = segments[0] === "(buyer)";
     const inFarmer = segments[0] === "(farmer)";
     const inAI = segments[0] === "(ai)";
     const inShared = segments[0] === "(shared)";
 
+    const redirect = (path: string) => {
+      if (active) {
+        router.replace(path);
+      }
+    };
+
     // Not logged in → force public flow
     if (!token) {
       if (!inPublic && !inAI && !inShared) {
-        router.replace("/");
+        redirect("/");
       }
-      return;
+      return () => {
+        active = false;
+      };
     }
 
     // Logged in → keep the user inside their own stack, but NEVER yank them out
@@ -51,13 +61,17 @@ export default function RootLayout() {
     // and login/OTP navigate explicitly — so a token-holder can still walk through
     // "Get Started" or sign in as a different account instead of being bounced home.
     if (user?.role === "buyer" && !inBuyer && !inShared && !inAI && !inPublic) {
-      router.replace("/(buyer)/home");
+      redirect("/(buyer)/home");
     }
 
     if (user?.role === "farmer" && !inFarmer && !inShared && !inAI && !inPublic) {
-      router.replace("/(farmer)/dashboard");
+      redirect("/(farmer)/dashboard");
     }
-  }, [appReady, user, token, segments]);
+
+    return () => {
+      active = false;
+    };
+  }, [appReady, user, token, segments, router]);
 
   if (!appReady) {
     return <Loading message="Starting..." />; // Prevents blank white screen

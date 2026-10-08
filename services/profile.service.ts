@@ -41,14 +41,25 @@ export type FarmerDashboard = {
   activeShipments: number;
 };
 
-// Build the React Native multipart file part for an on-device image URI.
-// RN's FormData accepts a { uri, name, type } object for file fields.
-function imageFilePart(uri: string) {
+// Build a stable multipart file part from a local image URI. React Native
+// accepts a Blob/File-like object here; raw { uri, name, type } objects can
+// fail on some runtimes with `unsupported FormDataPart implementation`.
+async function imageFilePart(uri: string): Promise<Blob> {
   const name = uri.split("/").pop() || `upload-${Date.now()}.jpg`;
   const ext = (/\.(\w+)$/.exec(name)?.[1] || "jpg").toLowerCase();
   const type =
     ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
-  return { uri, name, type } as any;
+
+  const response = await fetch(uri);
+  const blob = await response.blob();
+
+  // The Blob from fetch() preserves the correct MIME type for the underlying
+  // image, which avoids native runtime incompatibilities.
+  if (blob.type === "" && type) {
+    return new Blob([blob], { type });
+  }
+
+  return blob;
 }
 
 export const ProfileService = {
@@ -74,7 +85,9 @@ export const ProfileService = {
     uri: string
   ): Promise<FarmerProfile | null> => {
     const form = new FormData();
-    form.append("image", imageFilePart(uri));
+    const fileName = uri.split("/").pop() || `profile-${Date.now()}.jpg`;
+    const file = await imageFilePart(uri);
+    form.append("image", file, fileName);
     const res = await apiFetch("/farmer/profile-image", {
       method: "POST",
       body: form,
@@ -85,7 +98,9 @@ export const ProfileService = {
     uri: string
   ): Promise<BuyerProfile | null> => {
     const form = new FormData();
-    form.append("image", imageFilePart(uri));
+    const fileName = uri.split("/").pop() || `profile-${Date.now()}.jpg`;
+    const file = await imageFilePart(uri);
+    form.append("image", file, fileName);
     const res = await apiFetch("/buyer/profile-image", {
       method: "POST",
       body: form,
