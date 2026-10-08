@@ -64,7 +64,13 @@ export default function RootLayout() {
       redirect("/(buyer)/home");
     }
 
-    if (user?.role === "farmer" && !inFarmer && !inShared && !inAI && !inPublic) {
+    if (
+      user?.role === "farmer" &&
+      !inFarmer &&
+      !inShared &&
+      !inAI &&
+      !inPublic
+    ) {
       redirect("/(farmer)/dashboard");
     }
 
