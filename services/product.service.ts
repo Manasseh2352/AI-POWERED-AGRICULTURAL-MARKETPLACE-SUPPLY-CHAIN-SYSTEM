@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { apiFetch } from "@/lib/axios";
 
 // Restricted product types supported by the marketplace: non-perishable tubers.
@@ -166,6 +167,12 @@ export const ProductService = {
     return mapProduct(res?.product);
   },
 
+  // Permanently delete one of the farmer's own listings. The backend blocks
+  // this with a 409 when the product is already part of an order.
+  deleteProduct: async (id: string): Promise<void> => {
+    await apiFetch(`/farmer/products/${id}`, { method: "DELETE" });
+  },
+
   // Upload a single product photo (local image URI) to ImageKit via the
   // backend and return its hosted URL. Callers collect these URLs and pass them
   // as `images` to createProduct.
@@ -181,14 +188,18 @@ export const ProductService = {
 
     const form = new FormData();
 
-    try {
-      // React Native/Expo can reject plain objects appended to FormData.
-      // Convert the local file to a Blob first so the native runtime accepts it.
+    if (Platform.OS === "web") {
+      // Web: fetch() can read the object URL into a Blob; the { uri } descriptor
+      // is a React Native-only convention and does not work in browsers.
       const response = await fetch(uri);
       const blob = await response.blob();
       form.append("image", blob, name);
-    } catch {
-      // Fallback for environments that cannot produce a Blob from a local file URI.
+    } else {
+      // Native (iOS/Android): React Native's FormData expects the
+      // { uri, name, type } file descriptor. fetch(fileUri).blob() is NOT
+      // reliable on native — it can resolve with an error text body
+      // ("File not found") which then gets uploaded as the image itself,
+      // producing broken 14-byte "images" on ImageKit and blank product cards.
       form.append("image", { uri, name, type } as any);
     }
 

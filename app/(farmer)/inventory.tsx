@@ -1,7 +1,7 @@
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useState, useEffect, useCallback } from "react";
 import { ProductService, type UiProduct } from "@/services/product.service";
@@ -36,6 +36,32 @@ export default function Inventory() {
     setRefreshing(true);
     loadData();
   }, []);
+
+  const handleDelete = (item: UiProduct) => {
+    Alert.alert(
+      "Delete listing?",
+      `"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await ProductService.deleteProduct(item.id);
+              setInventory((prev) => prev.filter((p) => p.id !== item.id));
+            } catch (e: any) {
+              // 409 = the product is already part of an order.
+              Alert.alert(
+                "Could not delete",
+                e?.message || "Please try again."
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const totalStock = inventory.reduce((acc, curr) => acc + (curr.quantityKg || 0), 0);
 
@@ -149,11 +175,18 @@ export default function Inventory() {
                         </Text>
                       </View>
                       {item.location ? (
-                        <View className="flex-row items-center gap-1">
+                        <View className="flex-row items-center gap-1 mr-2">
                           <MaterialCommunityIcons name="map-marker-outline" size={14} color="#9ca3af" />
                           <Text className="text-xs text-gray-500">{item.location}</Text>
                         </View>
                       ) : null}
+                      <TouchableOpacity
+                        onPress={() => handleDelete(item)}
+                        className="h-9 w-9 items-center justify-center rounded-full bg-rose-50"
+                        accessibilityLabel={`Delete ${item.name} listing`}
+                      >
+                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#e11d48" />
+                      </TouchableOpacity>
                     </View>
 
                     <View className="mt-3">

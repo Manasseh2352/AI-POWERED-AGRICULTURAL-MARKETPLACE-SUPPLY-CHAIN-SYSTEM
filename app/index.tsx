@@ -79,7 +79,9 @@ export default function Index() {
 
         {/* LOGIN */}
         <TouchableOpacity
-          onPress={() => router.push("/(public)/auth/login")}
+
+
+onPress={() => router.push("/(public)/auth/login")}
           className="bg-gray-500 px-6 py-5 w-full rounded-lg mt-4"
         >
           <Text className="text-white font-bold text-xl text-center">

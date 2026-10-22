@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { apiFetch } from "@/lib/axios";
 
 // Backend profile/dashboard contracts (production-backend):
@@ -41,14 +42,24 @@ export type FarmerDashboard = {
   activeShipments: number;
 };
 
-// Build a stable multipart file part from a local image URI. React Native
-// accepts a Blob/File-like object here; raw { uri, name, type } objects can
-// fail on some runtimes with `unsupported FormDataPart implementation`.
-async function imageFilePart(uri: string): Promise<Blob> {
+// Build a stable multipart file part from a local image URI.
+//
+// On native (iOS/Android) React Native's FormData expects the
+// { uri, name, type } file descriptor — fetch(fileUri).blob() is NOT reliable
+// there and can resolve with an error text body ("File not found") that then
+// gets uploaded as the image itself (broken 14-byte files on ImageKit).
+// On web the descriptor form doesn't apply, so we read the URL into a Blob.
+type ImageFilePart = Blob | { uri: string; name: string; type: string };
+
+async function imageFilePart(uri: string): Promise<ImageFilePart> {
   const name = uri.split("/").pop() || `upload-${Date.now()}.jpg`;
   const ext = (/\.(\w+)$/.exec(name)?.[1] || "jpg").toLowerCase();
   const type =
     ext === "png" ? "image/png" : ext === "webp" ? "image/webp" : "image/jpeg";
+
+  if (Platform.OS !== "web") {
+    return { uri, name, type };
+  }
 
   const response = await fetch(uri);
   const blob = await response.blob();
@@ -87,7 +98,11 @@ export const ProfileService = {
     const form = new FormData();
     const fileName = uri.split("/").pop() || `profile-${Date.now()}.jpg`;
     const file = await imageFilePart(uri);
-    form.append("image", file, fileName);
+    // The descriptor object carries its own `name`; the filename argument only
+    // applies to Blob parts. (The `{ uri }` shape is React Native's FormData
+    // extension — the DOM typings don't know about it, hence the cast.)
+    if (file instanceof Blob) form.append("image", file, fileName);
+    else form.append("image", file as any);
     const res = await apiFetch("/farmer/profile-image", {
       method: "POST",
       body: form,
@@ -100,7 +115,11 @@ export const ProfileService = {
     const form = new FormData();
     const fileName = uri.split("/").pop() || `profile-${Date.now()}.jpg`;
     const file = await imageFilePart(uri);
-    form.append("image", file, fileName);
+    // The descriptor object carries its own `name`; the filename argument only
+    // applies to Blob parts. (The `{ uri }` shape is React Native's FormData
+    // extension — the DOM typings don't know about it, hence the cast.)
+    if (file instanceof Blob) form.append("image", file, fileName);
+    else form.append("image", file as any);
     const res = await apiFetch("/buyer/profile-image", {
       method: "POST",
       body: form,
