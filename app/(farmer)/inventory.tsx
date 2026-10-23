@@ -1,10 +1,19 @@
+import { ProductService, type UiProduct } from "@/services/product.service";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
-import { ScrollView, Text, TouchableOpacity, View, ActivityIndicator, RefreshControl, Alert } from "react-native";
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Alert,
+  Platform,
+  RefreshControl,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useState, useEffect, useCallback } from "react";
-import { ProductService, type UiProduct } from "@/services/product.service";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
@@ -38,6 +47,28 @@ export default function Inventory() {
   }, []);
 
   const handleDelete = (item: UiProduct) => {
+    const onConfirmDelete = async () => {
+      try {
+        await ProductService.deleteProduct(item.id);
+        setInventory((prev) => prev.filter((p) => p.id !== item.id));
+      } catch (e: any) {
+        // 409 = the product is already part of an order.
+        Alert.alert("Could not delete", e?.message || "Please try again.");
+      }
+    };
+
+    if (Platform.OS === "web") {
+      const confirmed = window.confirm(
+        `Delete listing?\n\n"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`,
+      );
+
+      if (confirmed) {
+        onConfirmDelete();
+      }
+
+      return;
+    }
+
     Alert.alert(
       "Delete listing?",
       `"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`,
@@ -46,30 +77,28 @@ export default function Inventory() {
         {
           text: "Delete",
           style: "destructive",
-          onPress: async () => {
-            try {
-              await ProductService.deleteProduct(item.id);
-              setInventory((prev) => prev.filter((p) => p.id !== item.id));
-            } catch (e: any) {
-              // 409 = the product is already part of an order.
-              Alert.alert(
-                "Could not delete",
-                e?.message || "Please try again."
-              );
-            }
-          },
+          onPress: onConfirmDelete,
         },
-      ]
+      ],
     );
   };
 
-  const totalStock = inventory.reduce((acc, curr) => acc + (curr.quantityKg || 0), 0);
+  const totalStock = inventory.reduce(
+    (acc, curr) => acc + (curr.quantityKg || 0),
+    0,
+  );
 
   return (
     <SafeAreaView className="flex-1 bg-[#f4f7ef]">
       <ScrollView
         showsVerticalScrollIndicator={false}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#047857" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor="#047857"
+          />
+        }
       >
         {/* HEADER */}
         <View className="px-6 pt-4 pb-6">
@@ -85,11 +114,7 @@ export default function Inventory() {
                 onPress={() => router.push("/(farmer)/upload")}
                 className="h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm shadow-black/5"
               >
-                <MaterialCommunityIcons
-                  name="plus"
-                  size={20}
-                  color="#14532d"
-                />
+                <MaterialCommunityIcons name="plus" size={20} color="#14532d" />
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push("/(farmer)/notifications")}
@@ -137,13 +162,21 @@ export default function Inventory() {
             <ActivityIndicator size="large" color="#047857" className="mt-10" />
           ) : inventory.length === 0 ? (
             <View className="py-10 items-center justify-center">
-              <MaterialCommunityIcons name="package-variant" size={48} color="#9ca3af" />
-              <Text className="text-gray-500 mt-4 text-center">You have no products listed.</Text>
+              <MaterialCommunityIcons
+                name="package-variant"
+                size={48}
+                color="#9ca3af"
+              />
+              <Text className="text-gray-500 mt-4 text-center">
+                You have no products listed.
+              </Text>
               <TouchableOpacity
                 onPress={() => router.push("/(farmer)/upload")}
                 className="mt-6 rounded-3xl bg-emerald-900 px-8 py-4"
               >
-                <Text className="text-base font-semibold text-white">List your first produce</Text>
+                <Text className="text-base font-semibold text-white">
+                  List your first produce
+                </Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -160,7 +193,9 @@ export default function Inventory() {
                       contentFit="cover"
                     />
                     <View className="absolute top-3 left-3 bg-emerald-100 rounded-full px-3 py-1">
-                      <Text className="text-xs font-bold text-emerald-700">Listed</Text>
+                      <Text className="text-xs font-bold text-emerald-700">
+                        Listed
+                      </Text>
                     </View>
                   </View>
 
@@ -176,8 +211,14 @@ export default function Inventory() {
                       </View>
                       {item.location ? (
                         <View className="flex-row items-center gap-1 mr-2">
-                          <MaterialCommunityIcons name="map-marker-outline" size={14} color="#9ca3af" />
-                          <Text className="text-xs text-gray-500">{item.location}</Text>
+                          <MaterialCommunityIcons
+                            name="map-marker-outline"
+                            size={14}
+                            color="#9ca3af"
+                          />
+                          <Text className="text-xs text-gray-500">
+                            {item.location}
+                          </Text>
                         </View>
                       ) : null}
                       <TouchableOpacity
@@ -185,13 +226,19 @@ export default function Inventory() {
                         className="h-9 w-9 items-center justify-center rounded-full bg-rose-50"
                         accessibilityLabel={`Delete ${item.name} listing`}
                       >
-                        <MaterialCommunityIcons name="trash-can-outline" size={18} color="#e11d48" />
+                        <MaterialCommunityIcons
+                          name="trash-can-outline"
+                          size={18}
+                          color="#e11d48"
+                        />
                       </TouchableOpacity>
                     </View>
 
                     <View className="mt-3">
                       <View className="flex-row justify-between mb-1">
-                        <Text className="text-xs text-gray-600 font-semibold">Stock Quantity</Text>
+                        <Text className="text-xs text-gray-600 font-semibold">
+                          Stock Quantity
+                        </Text>
                         <Text className="text-xs text-gray-600 font-semibold">
                           {item.quantityKg.toLocaleString()} kg
                         </Text>
