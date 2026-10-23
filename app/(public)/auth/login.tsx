@@ -1,9 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, Alert } from "react-native";
+import { View, Text, TextInput, TouchableOpacity, ActivityIndicator } from "react-native";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import { AuthService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/authStore";
+import { toast } from "@/store/toastStore";
 
 export default function Login() {
   const router = useRouter();
@@ -14,7 +15,7 @@ export default function Login() {
 
   const handleLogin = async () => {
     if (!email || !password) {
-      Alert.alert("Error", "Please enter your email and password.");
+      toast.error("Error", "Please enter your email and password.");
       return;
     }
 
@@ -45,7 +46,7 @@ export default function Login() {
         router.replace("/(buyer)/home");
       }
     } catch (error: any) {
-      Alert.alert("Login Failed", error?.message || "An error occurred");
+      toast.error("Login Failed", error?.message || "An error occurred");
     } finally {
       setLoading(false);
     }

@@ -45,25 +45,23 @@ export default function Tracking() {
   const orderId = Array.isArray(params.orderId) ? params.orderId[0] : params.orderId;
 
   const [order, setOrder] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  // No orderId → nothing to load, so start out of the loading state.
+  const [loading, setLoading] = useState(Boolean(orderId));
 
   useEffect(() => {
-    if (!orderId) {
-      setLoading(false);
-      return;
-    }
+    if (!orderId) return;
 
     let isMounted = true;
-    (async () => {
-      try {
-        const result = await OrderService.getBuyerOrder(orderId);
+    OrderService.getBuyerOrder(orderId)
+      .then((result) => {
         if (isMounted) setOrder(result);
-      } catch (error) {
+      })
+      .catch((error) => {
         console.error("Failed to load order tracking", error);
-      } finally {
+      })
+      .finally(() => {
         if (isMounted) setLoading(false);
-      }
-    })();
+      });
 
     return () => {
       isMounted = false;

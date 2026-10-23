@@ -9,11 +9,12 @@ import {
 import { useMoney } from "@/lib/useMoney";
 import CurrencyPicker from "@/lib/CurrencyPicker";
 import { chooseImageSource } from "@/lib/imagePick";
+import { toast } from "@/store/toastStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const SETTINGS = [
@@ -65,7 +66,7 @@ export default function Profile() {
       const updated = await ProfileService.uploadFarmerProfileImage(uri);
       if (updated) setProfile(updated);
     } catch (err: any) {
-      Alert.alert("Upload failed", err?.message || "Could not update your photo.");
+      toast.error("Upload failed", err?.message || "Could not update your photo.");
     } finally {
       setUploadingAvatar(false);
     }

@@ -1,4 +1,3 @@
-import { AuthService } from "@/services/auth.service";
 import {
   ProfileService,
   type FarmerDashboard,
@@ -16,6 +15,61 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+
+function StatValue({
+  value,
+  color = "#111827",
+  className = "text-2xl font-bold text-gray-900 mt-1",
+  loading = false,
+}: {
+  value: ReactNode;
+  color?: string;
+  className?: string;
+  loading?: boolean;
+}) {
+  return loading ? (
+    <ActivityIndicator className="mt-1 self-start" color={color} />
+  ) : (
+    <Text className={className}>{value}</Text>
+  );
+}
+
+function QuickActionCard({
+  title,
+  desc,
+  icon,
+  isHighlight,
+  onPress,
+}: {
+  title: string;
+  desc: string;
+  icon: ReactNode;
+  isHighlight?: boolean;
+  onPress?: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      onPress={onPress}
+      className={`rounded-2xl p-4 mb-3 flex-row items-center ${
+        isHighlight ? "bg-emerald-700" : "bg-gray-100"
+      }`}
+    >
+      <View className="mr-4">{icon}</View>
+      <View>
+        <Text
+          className={`font-bold ${isHighlight ? "text-white" : "text-gray-900"}`}
+        >
+          {title}
+        </Text>
+        <Text
+          className={`text-xs ${isHighlight ? "text-emerald-100" : "text-gray-500"}`}
+        >
+          {desc}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 export default function Dashboard() {
   const router = useRouter();
@@ -52,56 +106,6 @@ export default function Dashboard() {
   const greeting =
     hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening";
   const displayName = profile?.farmName || user?.fullName || "Farmer";
-
-  const StatValue = ({
-    value,
-    color = "#111827",
-    className = "text-2xl font-bold text-gray-900 mt-1",
-  }: {
-    value: ReactNode;
-    color?: string;
-    className?: string;
-  }) =>
-    loading ? (
-      <ActivityIndicator className="mt-1 self-start" color={color} />
-    ) : (
-      <Text className={className}>{value}</Text>
-    );
-
-  const QuickActionCard = ({
-    title,
-    desc,
-    icon,
-    isHighlight,
-    onPress,
-  }: {
-    title: string;
-    desc: string;
-    icon: ReactNode;
-    isHighlight?: boolean;
-    onPress?: () => void;
-  }) => (
-    <TouchableOpacity
-      onPress={onPress}
-      className={`rounded-2xl p-4 mb-3 flex-row items-center ${
-        isHighlight ? "bg-emerald-700" : "bg-gray-100"
-      }`}
-    >
-      <View className="mr-4">{icon}</View>
-      <View>
-        <Text
-          className={`font-bold ${isHighlight ? "text-white" : "text-gray-900"}`}
-        >
-          {title}
-        </Text>
-        <Text
-          className={`text-xs ${isHighlight ? "text-emerald-100" : "text-gray-500"}`}
-        >
-          {desc}
-        </Text>
-      </View>
-    </TouchableOpacity>
-  );
 
   return (
     <View className="flex-1 bg-white">
@@ -140,7 +144,7 @@ export default function Dashboard() {
             {greeting}, {displayName}
           </Text>
           <Text className="text-sm text-gray-500 mt-1">
-            Here's what's happening with your farm today.
+            Here&apos;s what&apos;s happening with your farm today.
           </Text>
         </View>
 
@@ -151,7 +155,7 @@ export default function Dashboard() {
             <View className="flex-row justify-between items-start">
               <View>
                 <Text className="text-xs text-gray-500">Live Listings</Text>
-                <StatValue value={dashboard?.totalProducts ?? 0} color="#047857" />
+                <StatValue value={dashboard?.totalProducts ?? 0} color="#047857" loading={loading} />
               </View>
               <MaterialCommunityIcons
                 name="clipboard-text"
@@ -170,6 +174,7 @@ export default function Dashboard() {
                   value={format(dashboard?.totalRevenue)}
                   color="#b45309"
                   className="text-xl font-bold text-gray-900 mt-1"
+                  loading={loading}
                 />
               </View>
               <MaterialCommunityIcons name="cash" size={28} color="#b45309" />
@@ -184,7 +189,7 @@ export default function Dashboard() {
             <View className="flex-row justify-between items-start">
               <View>
                 <Text className="text-xs text-gray-500">Total Orders</Text>
-                <StatValue value={dashboard?.totalOrders ?? 0} color="#1d4ed8" />
+                <StatValue value={dashboard?.totalOrders ?? 0} color="#1d4ed8" loading={loading} />
               </View>
               <MaterialCommunityIcons
                 name="clipboard-list"
@@ -199,7 +204,7 @@ export default function Dashboard() {
             <View className="flex-row justify-between items-start">
               <View>
                 <Text className="text-xs text-gray-500">Active Shipments</Text>
-                <StatValue value={dashboard?.activeShipments ?? 0} color="#c2410c" />
+                <StatValue value={dashboard?.activeShipments ?? 0} color="#c2410c" loading={loading} />
               </View>
               <MaterialCommunityIcons name="truck" size={28} color="#c2410c" />
             </View>

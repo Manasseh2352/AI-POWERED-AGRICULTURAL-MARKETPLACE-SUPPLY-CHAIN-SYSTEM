@@ -46,7 +46,7 @@ export default function Reviews() {
               No reviews yet
             </Text>
             <Text className="mt-2 text-center text-sm text-slate-500">
-              This product hasn't received any reviews.{"\n"}Check back later.
+              This product hasn&apos;t received any reviews.{"\n"}Check back later.
             </Text>
           </View>
         </View>

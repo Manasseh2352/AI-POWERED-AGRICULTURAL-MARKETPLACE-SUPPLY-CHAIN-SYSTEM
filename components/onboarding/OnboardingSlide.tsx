@@ -1,4 +1,4 @@
-import { View, Text } from "react-native";
+import { View } from "react-native";
 import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
 

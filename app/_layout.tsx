@@ -1,4 +1,5 @@
 import Loading from "@/components/ui/Loading";
+import Toast from "@/components/ui/Toast";
 import { useAuthStore } from "@/store/authStore";
 import { useCurrencyStore } from "@/store/currencyStore";
 import { useLoadingStore } from "@/store/loadingStore";
@@ -40,7 +41,7 @@ export default function RootLayout() {
     const inAI = segments[0] === "(ai)";
     const inShared = segments[0] === "(shared)";
 
-    const redirect = (path: string) => {
+    const redirect = (path: Parameters<typeof router.replace>[0]) => {
       if (active) {
         router.replace(path);
       }
@@ -90,6 +91,8 @@ export default function RootLayout() {
       ) : (
         <Stack screenOptions={{ headerShown: false }} />
       )}
+      {/* Global toast overlay — sits above every screen, survives navigation. */}
+      <Toast />
     </SafeAreaProvider>
   );
 }

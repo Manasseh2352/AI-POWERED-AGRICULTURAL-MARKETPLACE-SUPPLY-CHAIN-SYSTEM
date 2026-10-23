@@ -2,7 +2,6 @@ import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -10,6 +9,7 @@ import {
   View,
 } from "react-native";
 import { OrderService } from "@/services/order.service";
+import { toast } from "@/store/toastStore";
 import { useMoney } from "@/lib/useMoney";
 
 const num = (v: any) => {
@@ -63,7 +63,7 @@ export default function FarmerOrders() {
       await OrderService.advanceShipmentStatus(orderId, status);
       await fetchOrders();
     } catch (err: any) {
-      Alert.alert("Could not update shipment", err?.message || "Please try again.");
+      toast.error("Could not update shipment", err?.message || "Please try again.");
     } finally {
       setActingId(null);
     }
@@ -93,44 +93,45 @@ export default function FarmerOrders() {
   }, []);
 
   const handleAccept = (orderId: string) => {
-    Alert.alert("Accept order", "Confirm this order and reserve the produce for shipment?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Accept",
-        onPress: async () => {
-          setActingId(orderId);
-          try {
-            await OrderService.acceptOrder(orderId);
-            await fetchOrders();
-          } catch (err: any) {
-            Alert.alert("Could not accept", err?.message || "Please try again.");
-          } finally {
-            setActingId(null);
-          }
-        },
+    // Two-step confirmation: first press arms, second press executes.
+    toast.confirm({
+      key: `accept-order-${orderId}`,
+      title: "Accept order",
+      message: "Confirm this order and reserve the produce for shipment? Press again to confirm.",
+      onConfirm: async () => {
+        setActingId(orderId);
+        try {
+          await OrderService.acceptOrder(orderId);
+          await fetchOrders();
+          toast.success("Order accepted", "The order is confirmed and produce is reserved.");
+        } catch (err: any) {
+          toast.error("Could not accept", err?.message || "Please try again.");
+        } finally {
+          setActingId(null);
+        }
       },
-    ]);
+    });
   };
 
   const handleReject = (orderId: string) => {
-    Alert.alert("Reject order", "Are you sure you want to reject this order?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Reject",
-        style: "destructive",
-        onPress: async () => {
-          setActingId(orderId);
-          try {
-            await OrderService.rejectOrder(orderId);
-            await fetchOrders();
-          } catch (err: any) {
-            Alert.alert("Could not reject", err?.message || "Please try again.");
-          } finally {
-            setActingId(null);
-          }
-        },
+    // Rejecting cancels the order (and reverses escrow if paid) → two-step.
+    toast.confirm({
+      key: `reject-order-${orderId}`,
+      title: "Reject order",
+      message: "Are you sure you want to reject this order? Press again to confirm.",
+      onConfirm: async () => {
+        setActingId(orderId);
+        try {
+          await OrderService.rejectOrder(orderId);
+          await fetchOrders();
+          toast.success("Order rejected", "The buyer has been notified.");
+        } catch (err: any) {
+          toast.error("Could not reject", err?.message || "Please try again.");
+        } finally {
+          setActingId(null);
+        }
       },
-    ]);
+    });
   };
 
   return (

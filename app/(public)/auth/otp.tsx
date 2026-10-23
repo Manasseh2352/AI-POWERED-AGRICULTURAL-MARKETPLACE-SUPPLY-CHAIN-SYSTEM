@@ -2,15 +2,15 @@ import { useLoadingStore } from "@/store/loadingStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Text, TextInput, TouchableOpacity, View, ActivityIndicator, Alert } from "react-native";
+import { Text, TextInput, TouchableOpacity, View, ActivityIndicator } from "react-native";
 import { AuthService } from "@/services/auth.service";
 import { useAuthStore } from "@/store/authStore";
+import { toast } from "@/store/toastStore";
 
 
 export default function OTP() {
   const router = useRouter();
-  const { role: rawRole, purpose: rawPurpose } = useLocalSearchParams();
-  const role = rawRole === "farmer" || rawRole === "buyer" ? rawRole : undefined;
+  const { purpose: rawPurpose } = useLocalSearchParams();
   const purpose =
     rawPurpose === "LOGIN" || rawPurpose === "SIGNUP" ? rawPurpose : "SIGNUP";
 
@@ -24,7 +24,7 @@ export default function OTP() {
 
   useEffect(() => {
     if (!pendingEmail) {
-      Alert.alert("Error", "Your session expired. Please start again.");
+      toast.error("Error", "Your session expired. Please start again.");
       router.replace(
         purpose === "LOGIN"
           ? "/(public)/auth/login"
@@ -49,12 +49,12 @@ export default function OTP() {
 
     // Backend requires 6 digit OTP
     if (otpValue.length !== 6) {
-      Alert.alert("Error", "Please enter a 6-digit OTP.");
+      toast.error("Error", "Please enter a 6-digit OTP.");
       return;
     }
 
     if (!pendingEmail || !purpose) {
-      Alert.alert("Error", "Missing OTP purpose/email. Please restart login/register.");
+      toast.error("Error", "Missing OTP purpose/email. Please restart login/register.");
       return;
     }
 
@@ -75,7 +75,7 @@ export default function OTP() {
         const password = useAuthStore.getState().pendingPassword;
         if (!password) {
           router.replace("/(public)/auth/login");
-          Alert.alert("Verified", "Account verified. Please log in to continue.");
+          toast.success("Verified", "Account verified. Please log in to continue.");
           return;
         }
         const result = await AuthService.login(pendingEmail, password);
@@ -88,16 +88,16 @@ export default function OTP() {
           );
         } else {
           router.replace("/(public)/auth/login");
-          Alert.alert("Verified", "Account verified. Please log in to continue.");
+          toast.success("Verified", "Account verified. Please log in to continue.");
         }
       } else {
         // SIGNUP: the account is ACTIVE but we don't hold the password here, so
         // send the user to the login screen to sign in.
         router.replace("/(public)/auth/login");
-        Alert.alert("Success", "Account verified successfully. Please log in.");
+        toast.success("Success", "Account verified successfully. Please log in.");
       }
     } catch (err: any) {
-      Alert.alert("Verification Failed", err?.message || "OTP verification failed");
+      toast.error("Verification Failed", err?.message || "OTP verification failed");
     } finally {
       setLoading(false);
       setVerifying(false);
@@ -107,8 +107,9 @@ export default function OTP() {
   useEffect(() => {
     if (verifying) return;
     if (code.every((digit) => digit !== "") && pendingEmail) {
-      // Verify only once after all 6 digits are entered.
-      verify();
+      // Verify only once after all 6 digits are entered. Deferred by a
+      // microtask so the effect never kicks off state updates synchronously.
+      void Promise.resolve().then(() => verify());
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, pendingEmail]);
@@ -144,9 +145,9 @@ export default function OTP() {
       setSeconds(57);
       setCode(["", "", "", "", "", ""]);
       inputs.current[0]?.focus();
-      Alert.alert("Code sent", `A new verification code was sent to ${pendingEmail}.`);
+      toast.success("Code sent", `A new verification code was sent to ${pendingEmail}.`);
     } catch (err: any) {
-      Alert.alert("Error", err?.message || "Could not resend the code.");
+      toast.error("Error", err?.message || "Could not resend the code.");
     }
   };
 
@@ -188,7 +189,7 @@ export default function OTP() {
         </View>
 
         <View className="mt-8 items-center">
-          <Text className="text-gray-500">Didn't receive the code?</Text>
+          <Text className="text-gray-500">Didn&apos;t receive the code?</Text>
           <TouchableOpacity onPress={resendCode} disabled={seconds > 0}>
             <Text
               className={`mt-2 text-base font-bold ${

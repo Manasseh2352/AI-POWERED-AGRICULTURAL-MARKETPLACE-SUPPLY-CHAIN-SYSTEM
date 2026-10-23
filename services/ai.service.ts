@@ -40,11 +40,11 @@ export type ProfitEstimate = {
 };
 
 export type CropRecommendation = {
-  recommendations?: Array<{
+  recommendations?: {
     cropName?: string;
     confidence?: number;
     notes?: string;
-  }>;
+  }[];
   modelInfo?: { engine?: string; method?: string };
 };
 

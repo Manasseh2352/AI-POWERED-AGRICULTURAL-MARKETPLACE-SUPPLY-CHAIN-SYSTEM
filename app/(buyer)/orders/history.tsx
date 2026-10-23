@@ -57,16 +57,16 @@ export default function OrderHistory() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadOrders = async () => {
-    try {
-      const data = await OrderService.getBuyerOrders();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load order history", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const loadOrders = () => {
+    return OrderService.getBuyerOrders()
+      .then((data) => setOrders(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load order history", err))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {

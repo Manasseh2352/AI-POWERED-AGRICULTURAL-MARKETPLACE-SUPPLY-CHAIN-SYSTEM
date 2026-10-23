@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   View,
   ActivityIndicator,
-  Alert,
   RefreshControl,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -16,6 +15,7 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { ProductService, type UiProduct } from "@/services/product.service";
 import { useCartStore } from "@/store/cartStore";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400";
@@ -101,16 +101,16 @@ export default function Marketplace() {
   const addItem = useCartStore((s) => s.addItem);
   const cartCount = useCartStore((s) => s.items.length);
 
-  const loadProducts = async () => {
-    try {
-      const data = await ProductService.getAllProducts();
-      setProducts(data);
-    } catch (error) {
-      console.error("Failed to load products", error);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const loadProducts = () => {
+    return ProductService.getAllProducts()
+      .then((data) => setProducts(data))
+      .catch((error) => console.error("Failed to load products", error))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
@@ -124,7 +124,7 @@ export default function Marketplace() {
 
   const handleAdd = (p: UiProduct) => {
     addItem(p, 1);
-    Alert.alert("Added to cart", `1kg of ${p.name} was added to your cart.`);
+    toast.success("Added to cart", `1kg of ${p.name} was added to your cart.`);
   };
 
   const filtered = useMemo(() => {

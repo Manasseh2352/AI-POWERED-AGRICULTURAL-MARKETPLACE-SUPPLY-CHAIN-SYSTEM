@@ -9,9 +9,9 @@ import {
     TouchableOpacity,
     View,
     ActivityIndicator,
-    Alert
 } from "react-native";
 import { AuthService } from "@/services/auth.service";
+import { toast } from "@/store/toastStore";
 
 export default function Register() {
   const router = useRouter();
@@ -50,15 +50,15 @@ export default function Register() {
 
   const handleBuyerSubmit = async () => {
     if (!buyerForm.fullName || !buyerForm.workEmail || !buyerForm.phoneNumber || !buyerForm.password || !buyerForm.deliveryAddress) {
-      Alert.alert("Error", "Please fill in all fields");
+      toast.error("Error", "Please fill in all fields");
       return;
     }
     if (!buyerForm.agreeToTerms) {
-      Alert.alert("Error", "Please agree to Terms of Service");
+      toast.error("Error", "Please agree to Terms of Service");
       return;
     }
     if (buyerForm.password.length < 8) {
-      Alert.alert("Error", "Password must be at least 8 characters.");
+      toast.error("Error", "Password must be at least 8 characters.");
       return;
     }
 
@@ -73,7 +73,7 @@ export default function Register() {
       });
       router.push(`/(public)/auth/otp?role=buyer`);
     } catch (err: any) {
-      Alert.alert("Registration Failed", err.message);
+      toast.error("Registration Failed", err.message);
     } finally {
       setLoading(false);
     }
@@ -81,15 +81,15 @@ export default function Register() {
 
   const handleFarmerSubmit = async () => {
     if (!farmerForm.farmName || !farmerForm.email || !farmerForm.phoneNumber || !farmerForm.password) {
-      Alert.alert("Error", "Please fill in all fields");
+      toast.error("Error", "Please fill in all fields");
       return;
     }
     if (!farmerForm.agreeToTerms) {
-      Alert.alert("Error", "Please agree to Terms of Service");
+      toast.error("Error", "Please agree to Terms of Service");
       return;
     }
     if (farmerForm.password.length < 8) {
-      Alert.alert("Error", "Password must be at least 8 characters.");
+      toast.error("Error", "Password must be at least 8 characters.");
       return;
     }
 
@@ -105,7 +105,7 @@ export default function Register() {
       });
       router.push(`/(public)/auth/otp?role=farmer`);
     } catch (err: any) {
-      Alert.alert("Registration Failed", err.message);
+      toast.error("Registration Failed", err.message);
     } finally {
       setLoading(false);
     }

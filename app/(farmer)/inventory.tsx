@@ -1,12 +1,11 @@
 import { ProductService, type UiProduct } from "@/services/product.service";
+import { toast } from "@/store/toastStore";
 import MaterialCommunityIcons from "@expo/vector-icons/MaterialCommunityIcons";
 import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
-  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -25,16 +24,16 @@ export default function Inventory() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const loadData = async () => {
-    try {
-      const products = await ProductService.getMyProducts();
-      setInventory(products);
-    } catch (e) {
-      console.error("Failed to load inventory", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const loadData = () => {
+    return ProductService.getMyProducts()
+      .then((products) => setInventory(products))
+      .catch((e) => console.error("Failed to load inventory", e))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
@@ -47,40 +46,23 @@ export default function Inventory() {
   }, []);
 
   const handleDelete = (item: UiProduct) => {
-    const onConfirmDelete = async () => {
-      try {
-        await ProductService.deleteProduct(item.id);
-        setInventory((prev) => prev.filter((p) => p.id !== item.id));
-      } catch (e: any) {
-        // 409 = the product is already part of an order.
-        Alert.alert("Could not delete", e?.message || "Please try again.");
-      }
-    };
-
-    if (Platform.OS === "web") {
-      const confirmed = window.confirm(
-        `Delete listing?\n\n"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`,
-      );
-
-      if (confirmed) {
-        onConfirmDelete();
-      }
-
-      return;
-    }
-
-    Alert.alert(
-      "Delete listing?",
-      `"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: onConfirmDelete,
-        },
-      ],
-    );
+    // Two-step toast confirmation (works on web + native): first press arms,
+    // second press within the toast window executes. Backend blocks with 409
+    // if the product is already part of an order.
+    toast.confirm({
+      key: `delete-product-${item.id}`,
+      title: "Delete listing?",
+      message: `"${item.name}" will be permanently removed from the marketplace. This cannot be undone. Press again to confirm.`,
+      onConfirm: async () => {
+        try {
+          await ProductService.deleteProduct(item.id);
+          setInventory((prev) => prev.filter((p) => p.id !== item.id));
+          toast.success("Listing deleted", `"${item.name}" has been removed.`);
+        } catch (e: any) {
+          toast.error("Could not delete", e?.message || "Please try again.");
+        }
+      },
+    });
   };
 
   const totalStock = inventory.reduce(

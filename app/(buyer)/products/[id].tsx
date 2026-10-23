@@ -4,7 +4,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -14,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ProductService, type UiProduct } from "@/services/product.service";
 import { useCartStore } from "@/store/cartStore";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=800";
@@ -86,14 +86,10 @@ export default function ProductDetail() {
 
   const handleAddToCart = () => {
     addItem(product, quantity);
-    Alert.alert(
-      "Added to cart",
-      `${quantity}kg of ${product.name} added to your cart.`,
-      [
-        { text: "Keep shopping", style: "cancel" },
-        { text: "View cart", onPress: () => router.push("/(buyer)/cart") },
-      ]
-    );
+    toast.success("Added to cart", `${quantity}kg of ${product.name} added to your cart.`, {
+      label: "View cart",
+      onPress: () => router.push("/(buyer)/cart"),
+    });
   };
 
   return (

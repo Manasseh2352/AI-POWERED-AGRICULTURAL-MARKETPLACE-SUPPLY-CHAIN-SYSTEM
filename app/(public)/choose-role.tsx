@@ -5,6 +5,70 @@ import { Image } from "expo-image";
 import Animated, { FadeInDown, ZoomIn } from "react-native-reanimated";
 import { useRoleStore } from "@/store/roleStore";
 
+function Card({
+  type,
+  title,
+  desc,
+  img,
+  isActive,
+  onSelect,
+}: {
+  type: "buyer" | "farmer";
+  title: string;
+  desc: string;
+  img: any;
+  isActive: boolean;
+  onSelect: (type: "buyer" | "farmer") => void;
+}) {
+  return (
+    <Animated.View entering={FadeInDown.duration(500)}>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() => onSelect(type)}
+        className={`rounded-3xl p-5 border-2 mb-4 ${
+          isActive ? "border-green-600 bg-green-50" : "border-gray-200 bg-white"
+        }`}
+      >
+        <Animated.View entering={ZoomIn.duration(300)} className="items-center">
+
+          {/* IMAGE WRAPPER */}
+          <View
+            className={`rounded-2xl p-3 ${
+              isActive ? "bg-green-100" : "bg-gray-100"
+            }`}
+          >
+            <Image
+              source={img}
+              style={{ width: 130, height: 130 }}
+              contentFit="contain"
+            />
+          </View>
+
+          {/* TITLE */}
+          <Text className="text-xl font-bold mt-4 text-gray-800">
+            {title}
+          </Text>
+
+          {/* DESCRIPTION */}
+          <Text className="text-gray-500 text-center mt-2 leading-5">
+            {desc}
+          </Text>
+
+          {/* SELECTED BADGE */}
+          {isActive && (
+            <View className="mt-4 bg-green-600 px-4 py-1 rounded-full">
+              <Text className="text-white text-xs font-bold">
+                SELECTED
+              </Text>
+            </View>
+          )}
+
+        </Animated.View>
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
 export default function ChooseRole() {
   const router = useRouter();
   const [selected, setSelected] = useState<"buyer" | "farmer" | null>(null);
@@ -18,68 +82,6 @@ const handleContinue = () => {
 
   router.push("/(public)/auth/register");
 };
-
-  const Card = ({
-    type,
-    title,
-    desc,
-    img,
-  }: {
-    type: "buyer" | "farmer";
-    title: string;
-    desc: string;
-    img: any;
-  }) => {
-    const isActive = selected === type;
-
-    return (
-      <Animated.View entering={FadeInDown.duration(500)}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          onPress={() => setSelected(type)}
-          className={`rounded-3xl p-5 border-2 mb-4 ${
-            isActive ? "border-green-600 bg-green-50" : "border-gray-200 bg-white"
-          }`}
-        >
-          <Animated.View entering={ZoomIn.duration(300)} className="items-center">
-
-            {/* IMAGE WRAPPER */}
-            <View
-              className={`rounded-2xl p-3 ${
-                isActive ? "bg-green-100" : "bg-gray-100"
-              }`}
-            >
-              <Image
-                source={img}
-                style={{ width: 130, height: 130 }}
-                contentFit="contain"
-              />
-            </View>
-
-            {/* TITLE */}
-            <Text className="text-xl font-bold mt-4 text-gray-800">
-              {title}
-            </Text>
-
-            {/* DESCRIPTION */}
-            <Text className="text-gray-500 text-center mt-2 leading-5">
-              {desc}
-            </Text>
-
-            {/* SELECTED BADGE */}
-            {isActive && (
-              <View className="mt-4 bg-green-600 px-4 py-1 rounded-full">
-                <Text className="text-white text-xs font-bold">
-                  SELECTED
-                </Text>
-              </View>
-            )}
-
-          </Animated.View>
-        </TouchableOpacity>
-      </Animated.View>
-    );
-  };
 
   return (
     <View className="flex-1 bg-white px-6 justify-center">
@@ -104,6 +106,8 @@ const handleContinue = () => {
           title="Buyer"
           desc="Buy fresh farm produce directly from verified farmers at fair prices."
           img={require("@/assets/images/logo.png")}
+          isActive={selected === "buyer"}
+          onSelect={setSelected}
         />
 
         <Card
@@ -111,6 +115,8 @@ const handleContinue = () => {
           title="Farmer"
           desc="Sell your produce, manage inventory, and reach thousands of buyers."
           img={require("@/assets/images/logo.png")}
+          isActive={selected === "farmer"}
+          onSelect={setSelected}
         />
 
       </View>

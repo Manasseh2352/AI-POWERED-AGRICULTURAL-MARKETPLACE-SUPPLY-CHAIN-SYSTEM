@@ -64,7 +64,7 @@ export default function Slide2() {
         {/* DESCRIPTION */}
         <Text className="mx-6 mt-4 text-center text-base text-white/90 leading-6">
           Unlock precision agriculture with real-time market insights and demand
-          predictions tailored to your farm's ecosystem.
+          predictions tailored to your farm&apos;s ecosystem.
         </Text>
 
         {/* FEATURE CARDS */}

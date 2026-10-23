@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   RefreshControl,
   ScrollView,
   Text,
@@ -14,6 +13,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
 import { WalletService, type Wallet } from "@/services/wallet.service";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 
 const num = (v: any) => {
   const n = Number(v);
@@ -61,20 +61,22 @@ export default function Earnings() {
   const [refreshing, setRefreshing] = useState(false);
   const [withdrawing, setWithdrawing] = useState(false);
 
-  const loadOrders = async () => {
-    try {
-      const [data, walletData] = await Promise.all([
-        OrderService.getFarmerOrders(),
-        WalletService.getWallet().catch(() => null),
-      ]);
-      setOrders(Array.isArray(data) ? data : []);
-      setWallet(walletData);
-    } catch (err) {
-      console.error("Failed to load earnings", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const loadOrders = () => {
+    return Promise.all([
+      OrderService.getFarmerOrders(),
+      WalletService.getWallet().catch(() => null),
+    ])
+      .then(([data, walletData]) => {
+        setOrders(Array.isArray(data) ? data : []);
+        setWallet(walletData);
+      })
+      .catch((err) => console.error("Failed to load earnings", err))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
@@ -92,40 +94,36 @@ export default function Earnings() {
   const handleWithdraw = () => {
     if (withdrawing) return;
     if (available <= 0) {
-      Alert.alert(
+      toast.warn(
         "Nothing to withdraw",
         "Your available balance is empty. Funds are released once buyers confirm they've received their orders."
       );
       return;
     }
-    Alert.alert(
-      "Withdraw funds",
-      `Request a payout of ${money(available)} from your available balance?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Withdraw",
-          onPress: async () => {
-            setWithdrawing(true);
-            try {
-              const res = await WalletService.requestWithdrawal(available);
-              if (res?.wallet) setWallet(res.wallet);
-              Alert.alert(
-                "Withdrawal requested",
-                `${money(available)} is on its way to your account.`
-              );
-            } catch (error: any) {
-              Alert.alert(
-                "Withdrawal failed",
-                error?.message || "Please try again in a moment."
-              );
-            } finally {
-              setWithdrawing(false);
-            }
-          },
-        },
-      ]
-    );
+    // Moving real money out of the wallet → two-step confirmation.
+    toast.confirm({
+      key: "withdraw-funds",
+      title: "Withdraw funds",
+      message: `Request a payout of ${money(available)} from your available balance? Press again to confirm.`,
+      onConfirm: async () => {
+        setWithdrawing(true);
+        try {
+          const res = await WalletService.requestWithdrawal(available);
+          if (res?.wallet) setWallet(res.wallet);
+          toast.success(
+            "Withdrawal requested",
+            `${money(available)} is on its way to your account.`
+          );
+        } catch (error: any) {
+          toast.error(
+            "Withdrawal failed",
+            error?.message || "Please try again in a moment."
+          );
+        } finally {
+          setWithdrawing(false);
+        }
+      },
+    });
   };
 
   const stats = useMemo(() => {

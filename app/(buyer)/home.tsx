@@ -3,7 +3,6 @@ import { Image } from "expo-image";
 import { useRouter } from "expo-router";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -16,6 +15,7 @@ import { useAuthStore } from "@/store/authStore";
 import { useCartStore } from "@/store/cartStore";
 import { ProductService, type UiProduct, type ProductType } from "@/services/product.service";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const FALLBACK_IMAGE =
@@ -91,7 +91,7 @@ export default function BuyerHome() {
 
   const handleAddToCart = (product: any, quantity = 1) => {
     addItem(product, quantity);
-    Alert.alert("Added to cart", `${quantity}kg of ${product.name} was added to your cart.`);
+    toast.success("Added to cart", `${quantity}kg of ${product.name} was added to your cart.`);
   };
 
   return (

@@ -30,17 +30,19 @@ export default function Notifications() {
   const [refreshing, setRefreshing] = useState(false);
   const [markingAll, setMarkingAll] = useState(false);
 
-  const load = async () => {
-    try {
-      const res = await NotificationService.list("buyer", { limit: 50 });
-      setNotifications(res.notifications);
-      setUnreadCount(res.unreadCount);
-    } catch (err) {
-      console.error("Failed to load notifications", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const load = () => {
+    return NotificationService.list("buyer", { limit: 50 })
+      .then((res) => {
+        setNotifications(res.notifications);
+        setUnreadCount(res.unreadCount);
+      })
+      .catch((err) => console.error("Failed to load notifications", err))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {

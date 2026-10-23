@@ -5,7 +5,6 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
     ActivityIndicator,
-    Alert,
     RefreshControl,
     ScrollView,
     Text,
@@ -13,6 +12,7 @@ import {
     View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { toast } from "@/store/toastStore";
 
 const num = (v: any) => {
   const n = Number(v);
@@ -96,16 +96,16 @@ export default function CurrentOrders() {
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
   const [confirmingOrderId, setConfirmingOrderId] = useState<string | null>(null);
 
-  const loadOrders = async () => {
-    try {
-      const data = await OrderService.getBuyerOrders();
-      setOrders(Array.isArray(data) ? data : []);
-    } catch (err) {
-      console.error("Failed to load orders", err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the mount effect never updates state synchronously.
+  const loadOrders = () => {
+    return OrderService.getBuyerOrders()
+      .then((data) => setOrders(Array.isArray(data) ? data : []))
+      .catch((err) => console.error("Failed to load orders", err))
+      .finally(() => {
+        setLoading(false);
+        setRefreshing(false);
+      });
   };
 
   useEffect(() => {
@@ -117,61 +117,55 @@ export default function CurrentOrders() {
     loadOrders();
   }, []);
 
-  const handleDeleteOrder = async (orderId: string) => {
-    Alert.alert(
-      "Delete unpaid order?",
-      "This action cannot be undone. The order will be removed if payment has not been completed.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            setDeletingOrderId(orderId);
-            try {
-              await OrderService.deleteOrder(orderId);
-              await loadOrders();
-              Alert.alert("Order deleted", "The unpaid order has been removed.");
-            } catch (error: any) {
-              Alert.alert("Unable to delete order", error?.message || "Please try again.");
-            } finally {
-              setDeletingOrderId(null);
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteOrder = (orderId: string) => {
+    // Two-step toast confirmation: first press arms, second press (within the
+    // toast window) executes.
+    toast.confirm({
+      key: `delete-order-${orderId}`,
+      title: "Delete unpaid order?",
+      message:
+        "This action cannot be undone. The order will be removed if payment has not been completed. Press again to confirm.",
+      onConfirm: async () => {
+        setDeletingOrderId(orderId);
+        try {
+          await OrderService.deleteOrder(orderId);
+          await loadOrders();
+          toast.success("Order deleted", "The unpaid order has been removed.");
+        } catch (error: any) {
+          toast.error("Unable to delete order", error?.message || "Please try again.");
+        } finally {
+          setDeletingOrderId(null);
+        }
+      },
+    });
   };
 
-  const handleConfirmReceipt = async (orderId: string) => {
-    Alert.alert(
-      "Confirm receipt?",
-      "Only confirm once you've received your order. This releases payment from escrow to the farmer and can't be undone.",
-      [
-        { text: "Not yet", style: "cancel" },
-        {
-          text: "Confirm receipt",
-          onPress: async () => {
-            setConfirmingOrderId(orderId);
-            try {
-              await OrderService.confirmReceived(orderId);
-              await loadOrders();
-              Alert.alert(
-                "Receipt confirmed",
-                "Thanks! We've released the payment to the farmer."
-              );
-            } catch (error: any) {
-              Alert.alert(
-                "Unable to confirm receipt",
-                error?.message || "Please try again."
-              );
-            } finally {
-              setConfirmingOrderId(null);
-            }
-          },
-        },
-      ]
-    );
+  const handleConfirmReceipt = (orderId: string) => {
+    // Releasing escrow is irreversible → two-step confirmation.
+    toast.confirm({
+      key: `confirm-receipt-${orderId}`,
+      title: "Confirm receipt?",
+      message:
+        "Only confirm once you've received your order. This releases payment from escrow to the farmer and can't be undone. Press again to confirm.",
+      onConfirm: async () => {
+        setConfirmingOrderId(orderId);
+        try {
+          await OrderService.confirmReceived(orderId);
+          await loadOrders();
+          toast.success(
+            "Receipt confirmed",
+            "Thanks! We've released the payment to the farmer."
+          );
+        } catch (error: any) {
+          toast.error(
+            "Unable to confirm receipt",
+            error?.message || "Please try again."
+          );
+        } finally {
+          setConfirmingOrderId(null);
+        }
+      },
+    });
   };
 
   return (

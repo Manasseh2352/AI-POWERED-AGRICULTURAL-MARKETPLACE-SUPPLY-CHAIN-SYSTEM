@@ -85,7 +85,7 @@ export default function Slide3() {
         {/* DESCRIPTION */}
         <Text className="mx-6 mt-4 text-base text-gray-300 leading-6">
           Connect directly with verified logistics partners. Your transactions
-          are protected by HarvestAI's autonomous escrow system.
+          are protected by HarvestAI&apos;s autonomous escrow system.
         </Text>
 
         {/* DOTS INDICATOR */}

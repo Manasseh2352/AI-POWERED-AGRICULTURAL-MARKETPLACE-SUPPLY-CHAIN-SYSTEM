@@ -3,7 +3,6 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TouchableOpacity,
@@ -13,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { OrderService } from "@/services/order.service";
 import { PaymentService, type PaymentMethod } from "@/services/payment.service";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 
 type PaymentOption = {
   id: PaymentMethod;
@@ -55,24 +55,20 @@ export default function Payment() {
   const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
 
   const [order, setOrder] = useState<any | null>(null);
-  const [loadingOrder, setLoadingOrder] = useState(true);
+  // No orderId → nothing to load, so start out of the loading state.
+  const [loadingOrder, setLoadingOrder] = useState(Boolean(orderId));
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod>("CARD");
   const [paying, setPaying] = useState(false);
   const { format } = useMoney();
 
-  const loadOrder = async () => {
-    if (!orderId) {
-      setLoadingOrder(false);
-      return;
-    }
-    try {
-      const o = await OrderService.getBuyerOrder(orderId);
-      setOrder(o);
-    } catch (err) {
-      console.error("Failed to load order", err);
-    } finally {
-      setLoadingOrder(false);
-    }
+  // Promise chain instead of async/await: state is only touched from async
+  // callbacks, so the effect never updates state synchronously.
+  const loadOrder = () => {
+    if (!orderId) return Promise.resolve();
+    return OrderService.getBuyerOrder(orderId)
+      .then((o) => setOrder(o))
+      .catch((err) => console.error("Failed to load order", err))
+      .finally(() => setLoadingOrder(false));
   };
 
   useEffect(() => {
@@ -99,20 +95,20 @@ export default function Payment() {
 
   const handlePayment = async () => {
     if (!orderId) {
-      Alert.alert("Error", "No order to pay for.");
+      toast.error("Error", "No order to pay for.");
       return;
     }
     setPaying(true);
     try {
       const res = await PaymentService.payForOrder(orderId, selectedPayment);
       if (res?.alreadyPaid) {
-        Alert.alert("Already paid", "This order has already been paid for.");
+        toast.warn("Already paid", "This order has already been paid for.");
       } else {
-        Alert.alert("Payment successful", "Your order has been confirmed.");
+        toast.success("Payment successful", "Your order has been confirmed.");
       }
       router.replace("/(buyer)/orders/current");
     } catch (err: any) {
-      Alert.alert("Payment failed", err?.message || "Please try again.");
+      toast.error("Payment failed", err?.message || "Please try again.");
     } finally {
       setPaying(false);
     }

@@ -3,7 +3,6 @@ import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -15,6 +14,7 @@ import { OrderService } from "@/services/order.service";
 import { useCartStore } from "@/store/cartStore";
 import { useAuthStore } from "@/store/authStore";
 import { useMoney } from "@/lib/useMoney";
+import { toast } from "@/store/toastStore";
 
 export default function Checkout() {
   const router = useRouter();
@@ -26,17 +26,22 @@ export default function Checkout() {
   const clearCart = useCartStore((s) => s.clear);
   const user = useAuthStore((s) => s.user);
 
-  const [name, setName] = useState("");
+  const [name, setName] = useState(user?.fullName ?? "");
   const [address, setAddress] = useState("");
   const [phone, setPhone] = useState("");
   const [notes, setNotes] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState<"AIR" | "FLIGHT">("AIR");
   const [placing, setPlacing] = useState(false);
 
-  // Prefill the recipient name from the signed-in buyer.
-  useEffect(() => {
-    if (user?.fullName) setName(user.fullName);
-  }, [user?.fullName]);
+  // Prefill the recipient name from the signed-in buyer. Adjusted during
+  // render (React's recommended "adjust state when a value changes" pattern)
+  // rather than in an effect, so a late-arriving user object doesn't cause an
+  // extra cascade of renders.
+  const [prevFullName, setPrevFullName] = useState(user?.fullName ?? null);
+  if (user?.fullName && user.fullName !== prevFullName) {
+    setPrevFullName(user.fullName);
+    setName(user.fullName);
+  }
 
   // If the cart empties (e.g. after placing), bounce back to the marketplace.
   useEffect(() => {
@@ -48,7 +53,7 @@ export default function Checkout() {
   const handlePlaceOrder = async () => {
     if (items.length === 0) return;
     if (!name.trim() || !address.trim() || !phone.trim()) {
-      Alert.alert("Missing details", "Please enter the recipient name, delivery address, and phone number.");
+      toast.error("Missing details", "Please enter the recipient name, delivery address, and phone number.");
       return;
     }
 
@@ -75,7 +80,7 @@ export default function Checkout() {
       clearCart();
       router.replace(`/(buyer)/payment?orderId=${orderId}`);
     } catch (err: any) {
-      Alert.alert("Could not place order", err?.message || "Please try again.");
+      toast.error("Could not place order", err?.message || "Please try again.");
       setPlacing(false);
     }
   };
