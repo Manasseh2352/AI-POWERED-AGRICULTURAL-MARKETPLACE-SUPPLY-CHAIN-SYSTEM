@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   ScrollView,
   Text,
   TextInput,
@@ -14,7 +15,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ProductService, type ProductType } from "@/services/product.service";
 import { chooseImageSource } from "@/lib/imagePick";
 import { useMoney } from "@/lib/useMoney";
-import { toast } from "@/store/toastStore";
 
 const MAX_PHOTOS = 5;
 
@@ -55,19 +55,19 @@ export default function Upload() {
 
   const handleSubmit = async () => {
     if (!productName) {
-      toast.error("Select a crop", "Please choose which produce you are listing.");
+      Alert.alert("Select a crop", "Please choose which produce you are listing.");
       return;
     }
     const qty = Number(quantityKg);
     if (!Number.isFinite(qty) || qty <= 0) {
-      toast.error("Invalid quantity", "Enter a quantity in kilograms greater than zero.");
+      Alert.alert("Invalid quantity", "Enter a quantity in kilograms greater than zero.");
       return;
     }
     // Price is entered in the chosen display currency; convert to the USD base
     // the backend stores. Identity when the chosen currency is USD.
     const enteredPrice = unitPrice.trim() ? Number(unitPrice) : undefined;
     if (enteredPrice !== undefined && (!Number.isFinite(enteredPrice) || enteredPrice <= 0)) {
-      toast.error("Invalid price", "Price per kg must be a number greater than zero, or leave it blank for market pricing.");
+      Alert.alert("Invalid price", "Price per kg must be a number greater than zero, or leave it blank for market pricing.");
       return;
     }
     const priceUsd = enteredPrice !== undefined ? toUsd(enteredPrice) : undefined;
@@ -91,10 +91,10 @@ export default function Upload() {
         description: description.trim() || undefined,
         images: uploadedUrls.length ? uploadedUrls : undefined,
       });
-      toast.success("Produce listed", "Your produce is now live on the marketplace.");
+      Alert.alert("Produce listed", "Your produce is now live on the marketplace.");
       router.replace("/(farmer)/inventory");
     } catch (err: any) {
-      toast.error("Could not list produce", err?.message || "Please try again.");
+      Alert.alert("Could not list produce", err?.message || "Please try again.");
       setSubmitting(false);
     }
   };
