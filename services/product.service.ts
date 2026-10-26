@@ -32,75 +32,10 @@ export type UiProduct = {
   destinationCountry: string | null;
 };
 
-function extractImageUrl(item: any): string | null {
-  if (typeof item === "string") return item.trim() || null;
-  if (!item || typeof item !== "object") return null;
-
-  const candidates = [
-    item.url,
-    item.secure_url,
-    item.src,
-    item.href,
-    item.imageUrl,
-    item.image,
-    item.image_url,
-    item.publicUrl,
-  ];
-
-  for (const candidate of candidates) {
-    if (typeof candidate === "string" && candidate.trim())
-      return candidate.trim();
-  }
-
-  return null;
-}
-
-function normalizeImages(value: any): string[] {
-  const queue: any[] = [];
-
-  if (Array.isArray(value)) queue.push(...value);
-  else if (value != null) queue.push(value);
-
-  if (Array.isArray(value?.imageUrls)) queue.push(...value.imageUrls);
-  if (Array.isArray(value?.images)) queue.push(...value.images);
-  if (typeof value?.imageUrl === "string") queue.push(value.imageUrl);
-  if (typeof value?.image === "string") queue.push(value.image);
-
-  const urls: string[] = [];
-  const seen = new Set<string>();
-
-  for (const item of queue) {
-    if (Array.isArray(item)) {
-      for (const nested of item) {
-        const url = extractImageUrl(nested);
-        if (url && !seen.has(url)) {
-          seen.add(url);
-          urls.push(url);
-        }
-      }
-      continue;
-    }
-
-    const url = extractImageUrl(item);
-    if (url && !seen.has(url)) {
-      seen.add(url);
-      urls.push(url);
-    }
-  }
-
-  return urls;
-}
-
 export function mapProduct(p: any): UiProduct {
   const type = String(p?.productName ?? "").toUpperCase() as ProductType;
   const label = PRODUCT_LABELS[type] ?? "Produce";
   const qty = Number(p?.quantityKg ?? 0);
-  const images = normalizeImages({
-    images: p?.images,
-    imageUrls: p?.imageUrls,
-    imageUrl: p?.imageUrl,
-    image: p?.image,
-  });
 
   return {
     id: p?.id,
@@ -112,7 +47,7 @@ export function mapProduct(p: any): UiProduct {
         : `Fresh ${label} — ${qty.toLocaleString()}kg available`,
     pricePerKg: Number(p?.pricePerKg ?? 0),
     quantityKg: qty,
-    images,
+    images: Array.isArray(p?.images) ? p.images : [],
     seller:
       p?.farmerProfile?.farmName ??
       p?.farmerProfile?.displayName ??
@@ -187,19 +122,18 @@ export const ProductService = {
           : "image/jpeg";
 
     const form = new FormData();
-
+    // Web: the browser's FormData stringifies plain objects into
+    // "[object Object]", so the photo must be appended as a real Blob fetched
+    // from its URL (with `name` as the filename).
+    // Native: keep the { uri, name, type } descriptor — but React Native's own
+    // fetch must be the one sending it (see EXPO_PUBLIC_USE_RN_FETCH in .env);
+    // Expo's fetch throws "Unsupported FormDataPart implementation" for
+    // local-file parts like these.
     if (Platform.OS === "web") {
-      // Web: fetch() can read the object URL into a Blob; the { uri } descriptor
-      // is a React Native-only convention and does not work in browsers.
       const response = await fetch(uri);
       const blob = await response.blob();
       form.append("image", blob, name);
     } else {
-      // Native (iOS/Android): React Native's FormData expects the
-      // { uri, name, type } file descriptor. fetch(fileUri).blob() is NOT
-      // reliable on native — it can resolve with an error text body
-      // ("File not found") which then gets uploaded as the image itself,
-      // producing broken 14-byte "images" on ImageKit and blank product cards.
       form.append("image", { uri, name, type } as any);
     }
 

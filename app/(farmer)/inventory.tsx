@@ -6,6 +6,8 @@ import { useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
+  Platform,
   RefreshControl,
   ScrollView,
   Text,
@@ -45,24 +47,31 @@ export default function Inventory() {
     loadData();
   }, []);
 
-  const handleDelete = (item: UiProduct) => {
-    // Two-step toast confirmation (works on web + native): first press arms,
-    // second press within the toast window executes. Backend blocks with 409
-    // if the product is already part of an order.
-    toast.confirm({
-      key: `delete-product-${item.id}`,
-      title: "Delete listing?",
-      message: `"${item.name}" will be permanently removed from the marketplace. This cannot be undone. Press again to confirm.`,
-      onConfirm: async () => {
-        try {
-          await ProductService.deleteProduct(item.id);
-          setInventory((prev) => prev.filter((p) => p.id !== item.id));
-          toast.success("Listing deleted", `"${item.name}" has been removed.`);
-        } catch (e: any) {
-          toast.error("Could not delete", e?.message || "Please try again.");
-        }
-      },
-    });
+  const handleDelete = async (item: UiProduct) => {
+    const message = `"${item.name}" will be permanently removed from the marketplace. This cannot be undone.`;
+
+    // Native gets the OS alert with Cancel/Delete buttons. react-native-web's
+    // Alert.alert is a no-op (no button support), so web uses the browser's
+    // native confirm dialog instead.
+    const confirmed =
+      Platform.OS === "web"
+        ? window.confirm(`Delete listing?\n\n${message}`)
+        : await new Promise<boolean>((resolve) => {
+            Alert.alert("Delete listing?", message, [
+              { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+              { text: "Delete", style: "destructive", onPress: () => resolve(true) },
+            ]);
+          });
+
+    if (!confirmed) return;
+
+    try {
+      await ProductService.deleteProduct(item.id);
+      setInventory((prev) => prev.filter((p) => p.id !== item.id));
+      toast.success("Listing deleted", `"${item.name}" has been removed.`);
+    } catch (e: any) {
+      toast.error("Could not delete", e?.message || "Please try again.");
+    }
   };
 
   const totalStock = inventory.reduce(
